@@ -1,0 +1,12 @@
+[Unit]
+Description=Publish AMI host inventory to D-Bus
+Wants=xyz.openbmc_project.Software.Manager.service
+After=phosphor-ipmi-host.service xyz.openbmc_project.Software.Manager.service
+
+[Service]
+ExecStart=/usr/libexec/x570d4u-inventory-publisher
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

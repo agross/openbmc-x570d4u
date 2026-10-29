@@ -1,0 +1,52 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+set -eu
+
+# A separate vhub port preserves the existing KVM keyboard and mouse gadget.
+gadget=/sys/kernel/config/usb_gadget/x570d4u_redfish
+udc=1e6a0000.usb-vhub:p5
+old_network=/etc/systemd/network/00-bmc-eth1.network
+
+test -d "/sys/class/udc/$udc"
+for other in /sys/kernel/config/usb_gadget/*/UDC; do
+    [ "$other" = "$gadget/UDC" ] && continue
+    [ -r "$other" ] || continue
+    if [ "$(cat "$other")" = "$udc" ]; then
+        echo "USB controller $udc is already in use" >&2
+        exit 1
+    fi
+done
+
+if [ ! -e "$gadget/UDC" ] || [ -z "$(cat "$gadget/UDC")" ]; then
+    mkdir -p "$gadget"
+    # Stock X570D4U firmware identifies its Ethernet gadget as 046b:ffb0.
+    echo 0x046b > "$gadget/idVendor"
+    echo 0xffb0 > "$gadget/idProduct"
+    echo 0x02 > "$gadget/bDeviceClass"
+    echo 0x0100 > "$gadget/bcdDevice"
+    mkdir -p "$gadget/strings/0x409"
+    echo 'American Megatrends Inc.' > "$gadget/strings/0x409/manufacturer"
+    echo 'Virtual Ethernet' > "$gadget/strings/0x409/product"
+    echo '1234567890' > "$gadget/strings/0x409/serialnumber"
+    mkdir -p "$gadget/configs/c.1/strings/0x409"
+    echo 'RNDIS' > "$gadget/configs/c.1/strings/0x409/configuration"
+    mkdir -p "$gadget/functions/rndis.usb0"
+    echo 'usb-bmc%d' > "$gadget/functions/rndis.usb0/ifname"
+    echo 02:58:57:00:00:17 > "$gadget/functions/rndis.usb0/dev_addr"
+    echo 02:58:57:00:00:18 > "$gadget/functions/rndis.usb0/host_addr"
+    if [ ! -L "$gadget/configs/c.1/rndis.usb0" ]; then
+        ln -s "$gadget/functions/rndis.usb0" "$gadget/configs/c.1/rndis.usb0"
+    fi
+    echo "$udc" > "$gadget/UDC"
+fi
+
+# The network manager treats this link-local address as non-static and refuses
+# its Delete method. Remove only our previous setting, preserving all other
+# eth1 configuration, then remove the currently assigned address as well.
+if [ -f "$old_network" ] && grep -q '^Address=169[.]254[.]0[.]17/16$' "$old_network"; then
+    sed -i '/^Address=169[.]254[.]0[.]17\/16$/d' "$old_network"
+    networkctl reload
+fi
+if ip -4 addr show eth1 | grep -q 'inet 169[.]254[.]0[.]17/16 '; then
+    ip addr del 169.254.0.17/16 dev eth1
+fi

@@ -1,0 +1,25 @@
+From: Local OpenBMC configuration <root@localhost>
+Subject: [PATCH] Preserve X570D4U monitoring compatibility
+
+Upstream-Status: Pending
+
+--- a/dbus-sdr/sensorcommands.cpp
++++ b/dbus-sdr/sensorcommands.cpp
+@@ -523,6 +523,17 @@
+     if (nameStart != std::string::npos)
+     {
+         name = path.substr(nameStart + 1, std::string::npos - nameStart);
++    }
++
++    // Preserve the stock ASRock temperature names used by existing monitoring.
++    // Leave other names (including FAN4_1 and DDR4_A1_Temp) unchanged.
++    if (path.starts_with("/xyz/openbmc_project/sensors/temperature/") &&
++        (name == "CPU_Temp" || name == "MB_Temp" ||
++         name == "Card_Side_Temp" || name == "X570_Temp" ||
++         name == "Onboard_LAN_Temp" || name == "MB_Aux_Temp" ||
++         name == "LAN_Local_Temp"))
++    {
++        boost::replace_all(name, "_", " ");
+     }
+ 
+     if (name.size() > FULL_RECORD_ID_STR_MAX_LENGTH)

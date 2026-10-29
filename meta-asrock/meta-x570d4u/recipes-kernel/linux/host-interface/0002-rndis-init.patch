@@ -1,0 +1,22 @@
+Subject: [PATCH] Enable RNDIS transmit after initialization
+Upstream-Status: Inappropriate [board-specific firmware compatibility]
+
+--- a/drivers/usb/gadget/function/rndis.c
++++ b/drivers/usb/gadget/function/rndis.c
+@@ -820,6 +820,16 @@
+ 		pr_debug("%s: RNDIS_MSG_INIT\n",
+ 			__func__);
+ 		params->state = RNDIS_INITIALIZED;
++		/* AMI firmware exchanges frames without setting a packet filter. */
++		if (params->dev && params->filter) {
++			*params->filter = USB_CDC_PACKET_TYPE_DIRECTED |
++				USB_CDC_PACKET_TYPE_BROADCAST |
++				USB_CDC_PACKET_TYPE_ALL_MULTICAST;
++			params->state = RNDIS_DATA_INITIALIZED;
++			netif_carrier_on(params->dev);
++			if (netif_running(params->dev))
++				netif_wake_queue(params->dev);
++		}
+ 		return rndis_init_response(params, (rndis_init_msg_type *)buf);
+ 
+ 	case RNDIS_MSG_HALT:

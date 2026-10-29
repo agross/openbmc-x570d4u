@@ -1,0 +1,114 @@
+From: X570D4U OpenBMC adjustments <agross@therightstuff.de>
+Subject: [PATCH] Support BIOS host interface TLS
+
+Upstream-Status: Inappropriate [board-specific firmware compatibility]
+
+diff --git a/http/http_server.hpp b/http/http_server.hpp
+index 2548844556..6f0a58b3fe 100644
+--- a/http/http_server.hpp
++++ b/http/http_server.hpp
+@@ -87,6 +87,8 @@ class Server
+         }
+ 
+         adaptorCtx = ensuressl::getSslServerContext();
++        amiHostInterfaceAdaptorCtx =
++            ensuressl::getAmiHostInterfaceSslServerContext();
+     }
+ 
+     void afterWaitForSignal(const boost::system::error_code& ec, int signalNo)
+@@ -133,8 +135,25 @@ class Server
+                 boost::asio::ssl::context::tls_server);
+         }
+ 
++        std::shared_ptr<boost::asio::ssl::context> context = adaptorCtx;
++        boost::system::error_code endpointError;
++        const auto localAddress =
++            socket->local_endpoint(endpointError).address().to_string();
++        if (!endpointError &&
++            (localAddress == "169.254.0.17" ||
++             localAddress == "::ffff:169.254.0.17"))
++        {
++            context = amiHostInterfaceAdaptorCtx;
++        }
++        if (context == nullptr)
++        {
++            BMCWEB_LOG_ERROR("No TLS context for local address {}",
++                             localAddress);
++            context = adaptorCtx;
++        }
++
+         boost::asio::ssl::stream<Adaptor> stream(std::move(*socket),
+-                                                 *adaptorCtx);
++                                                 *context);
+         using ConnectionType = Connection<Adaptor, Handler>;
+         auto connection = std::make_shared<ConnectionType>(
+             handler, httpType, std::move(timer), getCachedDateStr,
+@@ -172,5 +191,6 @@ class Server
+     Handler* handler;
+ 
+     std::shared_ptr<boost::asio::ssl::context> adaptorCtx;
++    std::shared_ptr<boost::asio::ssl::context> amiHostInterfaceAdaptorCtx;
+ };
+ } // namespace crow
+diff --git a/include/ssl_key_handler.hpp b/include/ssl_key_handler.hpp
+index 6bdc2dbeb6..0839fab6d9 100644
+--- a/include/ssl_key_handler.hpp
++++ b/include/ssl_key_handler.hpp
+@@ -34,6 +34,7 @@ void writeCertificateToFile(const std::string& filepath,
+ std::string ensureOpensslKeyPresentAndValid(const std::string& filepath);
+ 
+ std::shared_ptr<boost::asio::ssl::context> getSslServerContext();
++std::shared_ptr<boost::asio::ssl::context> getAmiHostInterfaceSslServerContext();
+ 
+ std::optional<boost::asio::ssl::context> getSSLClientContext(
+     VerifyCertificate verifyCertificate);
+diff --git a/src/ssl_key_handler.cpp b/src/ssl_key_handler.cpp
+index bb39f97ec1..a178f6d72c 100644
+--- a/src/ssl_key_handler.cpp
++++ b/src/ssl_key_handler.cpp
+@@ -502,12 +502,12 @@ static bool getSslContext(boost::asio::ssl::context& mSslContext,
+     return true;
+ }
+ 
+-std::shared_ptr<boost::asio::ssl::context> getSslServerContext()
++static std::shared_ptr<boost::asio::ssl::context> makeSslServerContext(
++    const std::string& certificate)
+ {
+     boost::asio::ssl::context sslCtx(boost::asio::ssl::context::tls_server);
+ 
+-    auto certFile = ensureCertificate();
+-    if (!getSslContext(sslCtx, certFile))
++    if (!getSslContext(sslCtx, certificate))
+     {
+         BMCWEB_LOG_CRITICAL("Couldn't get server context");
+         return nullptr;
+@@ -578,6 +578,29 @@ std::shared_ptr<boost::asio::ssl::context> getSslServerContext()
+     return std::make_shared<boost::asio::ssl::context>(std::move(sslCtx));
+ }
+ 
++std::shared_ptr<boost::asio::ssl::context> getSslServerContext()
++{
++    auto context = makeSslServerContext(ensureCertificate());
++    if (context == nullptr)
++    {
++        return nullptr;
++    }
++    SSL_CTX_clear_options(context->native_handle(), SSL_OP_NO_TLSv1_2);
++    if (SSL_CTX_set_min_proto_version(context->native_handle(), TLS1_2_VERSION) != 1 ||
++        SSL_CTX_set_cipher_list(context->native_handle(),
++            "ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:ECDHE+AES") != 1)
++    {
++        return nullptr;
++    }
++    return context;
++}
++
++std::shared_ptr<boost::asio::ssl::context>
++    getAmiHostInterfaceSslServerContext()
++{
++    return makeSslServerContext(ensureCertificate());
++}
++
+ std::optional<boost::asio::ssl::context> getSSLClientContext(
+     VerifyCertificate verifyCertificate)
+ {

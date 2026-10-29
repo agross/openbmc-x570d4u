@@ -1,0 +1,8 @@
+# Each PWM is either fixed <percent> or
+# temperature <hwmon name> <preferred labels, in order> <temperature:percent points in degrees Celsius>.
+pwm1: fixed 75
+pwm2: temperature nct6796 TSI0_TEMP,CPUTIN 50:20,60:50,70:60,80:70,90:100
+pwm3: temperature nct6796 TSI0_TEMP,CPUTIN 50:20,60:50,70:60,80:70,90:100
+pwm4: fixed 40
+# FAN5 (pwm5) is not installed.
+pwm6: fixed 50

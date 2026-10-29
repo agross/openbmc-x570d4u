@@ -1,0 +1,15 @@
+From: Local OpenBMC configuration <root@localhost>
+Subject: [PATCH] Support NCT6796 temperature sensors
+
+Upstream-Status: Pending
+
+--- a/schemas/legacy.json
++++ b/schemas/legacy.json
+@@ -761,6 +761,7 @@
+                         "MAX6639",
+                         "MCP9600",
+                         "NCT6779",
++                        "NCT6796",
+                         "NCT7802",
+                         "PT5161L",
+                         "SBTSI",

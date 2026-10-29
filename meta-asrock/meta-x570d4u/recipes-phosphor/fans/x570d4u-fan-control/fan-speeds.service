@@ -1,0 +1,15 @@
+[Unit]
+Description=Apply configured fan policy
+Wants=nct6796-enable.service
+After=systemd-udev-trigger.service nct6796-enable.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/bin/sh /etc/fan-controller.sh
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

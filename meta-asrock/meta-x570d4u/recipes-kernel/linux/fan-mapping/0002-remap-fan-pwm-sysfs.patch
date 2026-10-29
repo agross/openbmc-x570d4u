@@ -1,0 +1,54 @@
+From: Local OpenBMC configuration <root@localhost>
+Subject: [PATCH] hwmon: aspeed: align X570D4U PWM names with fan headers
+
+On X570D4U, PWM ports 4 and 5 drive headers FAN6 and FAN5. Expose
+them as pwm6 and pwm5 respectively while retaining hardware port
+numbers for cooling devices and tachometer inputs.
+
+Upstream-Status: Inappropriate [local sysfs compatibility policy]
+
+--- a/drivers/hwmon/aspeed-pwm-tacho.c
++++ b/drivers/hwmon/aspeed-pwm-tacho.c
+@@ -574,11 +574,23 @@
+ 	return (clk_source * 60) / (2 * raw_data * tach_div);
+ }
+ 
++/* Expose X570D4U PWM names in physical fan-header order. */
++static int aspeed_pwm_sysfs_port(int index)
++{
++	if (of_machine_is_compatible("asrock,x570d4u-bmc")) {
++		if (index == 4)
++			return 5;
++		if (index == 5)
++			return 4;
++	}
++	return index;
++}
++
+ static ssize_t pwm_store(struct device *dev, struct device_attribute *attr,
+ 			 const char *buf, size_t count)
+ {
+ 	struct sensor_device_attribute *sensor_attr = to_sensor_dev_attr(attr);
+-	int index = sensor_attr->index;
++	int index = aspeed_pwm_sysfs_port(sensor_attr->index);
+ 	int ret;
+ 	struct aspeed_pwm_tacho_data *priv = dev_get_drvdata(dev);
+ 	long fan_ctrl;
+@@ -603,7 +615,7 @@
+ 			char *buf)
+ {
+ 	struct sensor_device_attribute *sensor_attr = to_sensor_dev_attr(attr);
+-	int index = sensor_attr->index;
++	int index = aspeed_pwm_sysfs_port(sensor_attr->index);
+ 	struct aspeed_pwm_tacho_data *priv = dev_get_drvdata(dev);
+ 
+ 	return sprintf(buf, "%u\n", priv->pwm_port_fan_ctrl[index]);
+@@ -630,7 +642,7 @@
+ 	struct device *dev = kobj_to_dev(kobj);
+ 	struct aspeed_pwm_tacho_data *priv = dev_get_drvdata(dev);
+ 
+-	if (!priv->pwm_present[index])
++	if (!priv->pwm_present[aspeed_pwm_sysfs_port(index)])
+ 		return 0;
+ 	return a->mode;
+ }

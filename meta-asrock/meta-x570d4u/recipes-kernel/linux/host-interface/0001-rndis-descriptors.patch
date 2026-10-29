@@ -1,0 +1,109 @@
+Subject: [PATCH] Match stock AMI RNDIS descriptors
+Upstream-Status: Inappropriate [board-specific firmware compatibility]
+
+--- a/drivers/usb/gadget/function/f_rndis.c
++++ b/drivers/usb/gadget/function/f_rndis.c
+@@ -73,6 +73,7 @@
+ 	struct gether			port;
+ 	u8				ctrl_id, data_id;
+ 	u8				ethaddr[ETH_ALEN];
++	char				ethaddr_cdc[14];
+ 	u32				vendorID;
+ 	const char			*manufacturer;
+ 	struct rndis_params		*params;
+@@ -144,6 +145,14 @@
+ 	/* .bSlaveInterface0 =	DYNAMIC */
+ };
+ 
++/* Stock AMI firmware advertises this in its RNDIS configuration. */
++static struct usb_cdc_ether_desc rndis_ether_desc = {
++	.bLength = sizeof(rndis_ether_desc),
++	.bDescriptorType = USB_DT_CS_INTERFACE,
++	.bDescriptorSubType = USB_CDC_ETHERNET_TYPE,
++	.wMaxSegmentSize = cpu_to_le16(ETH_FRAME_LEN),
++};
++
+ /* the data interface has two bulk endpoints */
+ 
+ static struct usb_interface_descriptor rndis_data_intf = {
+@@ -201,7 +210,6 @@
+ };
+ 
+ static struct usb_descriptor_header *eth_fs_function[] = {
+-	(struct usb_descriptor_header *) &rndis_iad_descriptor,
+ 
+ 	/* control interface matches ACM, not Ethernet */
+ 	(struct usb_descriptor_header *) &rndis_control_intf,
+@@ -209,6 +217,7 @@
+ 	(struct usb_descriptor_header *) &call_mgmt_descriptor,
+ 	(struct usb_descriptor_header *) &rndis_acm_descriptor,
+ 	(struct usb_descriptor_header *) &rndis_union_desc,
++	(struct usb_descriptor_header *) &rndis_ether_desc,
+ 	(struct usb_descriptor_header *) &fs_notify_desc,
+ 
+ 	/* data interface has no altsetting */
+@@ -249,7 +258,6 @@
+ };
+ 
+ static struct usb_descriptor_header *eth_hs_function[] = {
+-	(struct usb_descriptor_header *) &rndis_iad_descriptor,
+ 
+ 	/* control interface matches ACM, not Ethernet */
+ 	(struct usb_descriptor_header *) &rndis_control_intf,
+@@ -257,6 +265,7 @@
+ 	(struct usb_descriptor_header *) &call_mgmt_descriptor,
+ 	(struct usb_descriptor_header *) &rndis_acm_descriptor,
+ 	(struct usb_descriptor_header *) &rndis_union_desc,
++	(struct usb_descriptor_header *) &rndis_ether_desc,
+ 	(struct usb_descriptor_header *) &hs_notify_desc,
+ 
+ 	/* data interface has no altsetting */
+@@ -316,7 +325,6 @@
+ };
+ 
+ static struct usb_descriptor_header *eth_ss_function[] = {
+-	(struct usb_descriptor_header *) &rndis_iad_descriptor,
+ 
+ 	/* control interface matches ACM, not Ethernet */
+ 	(struct usb_descriptor_header *) &rndis_control_intf,
+@@ -324,6 +332,7 @@
+ 	(struct usb_descriptor_header *) &call_mgmt_descriptor,
+ 	(struct usb_descriptor_header *) &rndis_acm_descriptor,
+ 	(struct usb_descriptor_header *) &rndis_union_desc,
++	(struct usb_descriptor_header *) &rndis_ether_desc,
+ 	(struct usb_descriptor_header *) &ss_notify_desc,
+ 	(struct usb_descriptor_header *) &ss_intr_comp_desc,
+ 
+@@ -342,6 +351,7 @@
+ 	[0].s = "RNDIS Communications Control",
+ 	[1].s = "RNDIS Ethernet Data",
+ 	[2].s = "RNDIS",
++	[3].s = "",
+ 	{  } /* end of list */
+ };
+ 
+@@ -698,6 +708,7 @@
+ 		}
+ 	}
+ 
++	rndis_string_defs[3].s = rndis->ethaddr_cdc;
+ 	us = usb_gstrings_attach(cdev, rndis_strings,
+ 				 ARRAY_SIZE(rndis_string_defs));
+ 	if (IS_ERR(us))
+@@ -705,6 +716,7 @@
+ 	rndis_control_intf.iInterface = us[0].id;
+ 	rndis_data_intf.iInterface = us[1].id;
+ 	rndis_iad_descriptor.iFunction = us[2].id;
++	rndis_ether_desc.iMACAddress = us[3].id;
+ 
+ 	/* allocate instance-specific interface IDs */
+ 	status = usb_interface_id(c, f);
+@@ -976,6 +988,8 @@
+ 	opts->refcnt++;
+ 
+ 	gether_get_host_addr_u8(opts->net, rndis->ethaddr);
++	gether_get_host_addr_cdc(opts->net, rndis->ethaddr_cdc,
++				 sizeof(rndis->ethaddr_cdc));
+ 	rndis->vendorID = opts->vendor_id;
+ 	rndis->manufacturer = opts->manufacturer;
+ 

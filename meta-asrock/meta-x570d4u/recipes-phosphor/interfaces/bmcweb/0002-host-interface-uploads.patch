@@ -1,0 +1,502 @@
+From: X570D4U OpenBMC adjustments <agross@therightstuff.de>
+Subject: [PATCH] Accept BIOS host interface uploads
+
+Upstream-Status: Inappropriate [board-specific firmware compatibility]
+
+diff --git a/http/http_body.hpp b/http/http_body.hpp
+index d970e202f6..ef512c4f71 100644
+--- a/http/http_body.hpp
++++ b/http/http_body.hpp
+@@ -384,12 +384,18 @@ class HttpBody::reader
+     value_type& value;
+     std::optional<MultipartParser> multipartParser;
+     const boost::beast::http::fields& hdr;
++    const boost::beast::http::header<true, boost::beast::http::fields>* requestHeader = nullptr;
+ 
+   public:
+     template <bool IsRequest, class Fields>
+     reader(boost::beast::http::header<IsRequest, Fields>& headers,
+            value_type& body) : value(body), hdr(headers)
+-    {}
++    {
++        if constexpr (IsRequest)
++        {
++            requestHeader = &headers;
++        }
++    }
+ 
+     void init(const boost::optional<std::uint64_t>& contentLength,
+               boost::beast::error_code& ec)
+@@ -397,7 +403,11 @@ class HttpBody::reader
+         std::string_view contentType =
+             hdr[boost::beast::http::field::content_type];
+ 
+-        if (contentType.starts_with("multipart/form-data"))
++        // AMI firmware emits extra data after the SMBIOS MIME closing boundary.
++        // Preserve the bounded body for its dedicated host-interface handler.
++        const bool amiSmbios = requestHeader != nullptr &&
++            requestHeader->target() == "/redfish/v1/Systems/Self/Smbios";
++        if (contentType.starts_with("multipart/form-data") && !amiSmbios)
+         {
+             BMCWEB_LOG_DEBUG("Processing multipart/form-data");
+             MultipartParser& mp = multipartParser.emplace();
+diff --git a/http/http_connection.hpp b/http/http_connection.hpp
+index d5c512142e..9da45df3a1 100644
+--- a/http/http_connection.hpp
++++ b/http/http_connection.hpp
+@@ -209,6 +209,12 @@ class Connection :
+         BMCWEB_LOG_DEBUG("{} Connection started, total {}", logPtr(this),
+                          connectionCount);
+         readClientIp();
++        boost::system::error_code localError;
++        const auto localAddress = boost::beast::get_lowest_layer(adaptor)
++                                      .local_endpoint(localError).address().to_string();
++        amiHostInterface = !localError &&
++                           (localAddress == "169.254.0.17" ||
++                            localAddress == "::ffff:169.254.0.17");
+         if (connectionCount >= 200)
+         {
+             BMCWEB_LOG_CRITICAL("{} Max connection count exceeded. Request {}",
+@@ -432,6 +438,9 @@ class Connection :
+         {
+             if (!authentication::isOnAllowlist(req->url().path(),
+                                                req->method()) &&
++                !(amiHostInterface && (ip.to_string() == "169.254.0.18" || ip.to_string() == "::ffff:169.254.0.18") &&
++                  authentication::isAmiInventoryUpload(req->url().path(),
++                                                        req->method())) &&
+                 req->session == nullptr)
+             {
+                 BMCWEB_LOG_WARNING("Authentication failed");
+@@ -542,12 +551,21 @@ class Connection :
+     }
+ 
+   private:
++    bool amiHostInterface = false;
++
+     uint64_t getContentLengthLimit()
+     {
+         if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
+         {
+             if (userSession == nullptr)
+             {
++                if (amiHostInterface && (ip.to_string() == "169.254.0.18" || ip.to_string() == "::ffff:169.254.0.18") &&
++                    parser.has_value() &&
++                    authentication::isAmiInventoryUpload(
++                        parser->get().target(), parser->get().method()))
++                {
++                    return httpReqBodyLimit;
++                }
+                 return loggedOutPostBodyLimit;
+             }
+         }
+@@ -643,7 +661,10 @@ class Connection :
+         auto& parse = *parser;
+         const auto& value = parser->get();
+ 
+-        if (authenticationEnabled)
++        const bool amiUpload = amiHostInterface &&
++            (ip.to_string() == "169.254.0.18" || ip.to_string() == "::ffff:169.254.0.18") &&
++            authentication::isAmiInventoryUpload(value.target(), value.method());
++        if (authenticationEnabled && !amiUpload)
+         {
+             boost::beast::http::verb method = value.method();
+             userSession = authentication::authenticate(
+diff --git a/include/authentication.hpp b/include/authentication.hpp
+index c71b5ec314..48ebf98d3a 100644
+--- a/include/authentication.hpp
++++ b/include/authentication.hpp
+@@ -214,6 +214,37 @@ inline std::shared_ptr<persistent_data::UserSession> performTLSAuth(
+ }
+ 
+ // checks if request can be forwarded without authentication
++inline bool isAmiInventoryUpload(std::string_view url,
++                                 boost::beast::http::verb method)
++{
++    if (url.ends_with('/') && url != "/")
++    {
++        url.remove_suffix(1);
++    }
++    if (url == "/redfish/v1/Oem/Ami/InventoryData")
++    {
++        return method == boost::beast::http::verb::get ||
++               method == boost::beast::http::verb::post ||
++               method == boost::beast::http::verb::patch;
++    }
++    if (method == boost::beast::http::verb::patch &&
++        url == "/redfish/v1/oem/ami/configuredbsnapshot")
++    {
++        return true;
++    }
++    if (method != boost::beast::http::verb::post)
++    {
++        return false;
++    }
++    constexpr std::string_view registry = "/redfish/v1/Registries/BiosAttributeRegistry";
++    return url == "/redfish/v1/Oem/Ami/InventoryData" ||
++           url == "/redfish/v1/BiosStaticFiles" ||
++           url == "/redfish/v1/Systems/Self/Bios" ||
++           url == "/redfish/v1/Systems/Self/Smbios" ||
++           (url.starts_with(registry) && url.ends_with(".json") &&
++            url.find('/', registry.size()) == std::string_view::npos);
++}
++
+ inline bool isOnAllowlist(std::string_view url, boost::beast::http::verb method)
+ {
+     // Handle the case where the router registers routes as both ending with /
+diff --git a/redfish-core/src/redfish.cpp b/redfish-core/src/redfish.cpp
+index 6cfeea4859..f6ade13ddb 100644
+--- a/redfish-core/src/redfish.cpp
++++ b/redfish-core/src/redfish.cpp
+@@ -67,6 +67,7 @@
+ #include "trigger.hpp"
+ #include "update_service.hpp"
+ #include "virtual_media.hpp"
++#include "x570d4u_rf_inventory.hpp"
+ 
+ namespace redfish
+ {
+@@ -239,6 +240,8 @@ RedfishService::RedfishService(App& app)
+     requestRoutesTriggerCollection(app);
+     requestRoutesTrigger(app);
+ 
++    requestRoutesX570d4uRfInventory(app);
++
+     // Note, this must be the last route registered
+     requestRoutesRedfish(app);
+ 
+--- /dev/null
++++ b/redfish-core/lib/x570d4u_rf_inventory.hpp
+@@ -0,0 +1,333 @@
++// SPDX-License-Identifier: Apache-2.0
++// SPDX-FileCopyrightText: Copyright OpenBMC Authors
++#pragma once
++
++#include "app.hpp"
++#include "async_resp.hpp"
++#include "logging.hpp"
++
++#include <boost/beast/http/field.hpp>
++#include <boost/beast/http/status.hpp>
++#include <boost/beast/http/verb.hpp>
++
++#include <filesystem>
++#include <cctype>
++#include <fstream>
++#include <string>
++#include <string_view>
++
++#include <nlohmann/json.hpp>
++
++namespace redfish
++{
++namespace x570d4u
++{
++constexpr std::string_view inventoryPath =
++    "/var/lib/x570d4u-bios-version/rf-inventory.json";
++constexpr std::string_view pendingInventoryPath =
++    "/var/lib/x570d4u-bios-version/rf-inventory.pending.json";
++constexpr size_t maxInventorySize = 512U * 1024U;
++
++inline bool saveInventory(std::string_view payload)
++{
++    if (payload.size() > maxInventorySize)
++    {
++        return false;
++    }
++
++    nlohmann::json inventory = nlohmann::json::parse(payload, nullptr, false);
++    if (inventory.is_discarded() || !inventory.is_object())
++    {
++        return false;
++    }
++
++    if (!inventory.contains("Systems") || !inventory.contains("Chassis"))
++    {
++        return false;
++    }
++
++    const std::filesystem::path output(pendingInventoryPath);
++    std::error_code ec;
++    std::filesystem::create_directories(output.parent_path(), ec);
++    if (ec)
++    {
++        return false;
++    }
++    const std::filesystem::path temporary = output.string() + ".new";
++    {
++        std::ofstream file(temporary, std::ios::binary | std::ios::trunc);
++        if (!file || !(file << payload))
++        {
++            return false;
++        }
++    }
++    std::filesystem::rename(temporary, output, ec);
++    return !ec;
++}
++
++inline std::string_view getPayload(crow::Request& req)
++{
++    const auto parts = req.multipart();
++    if (parts.empty())
++    {
++        return req.body();
++    }
++    for (const FormPart& part : parts)
++    {
++        const auto disposition = part.fields.find(
++            boost::beast::http::field::content_disposition);
++        if (disposition != part.fields.end() &&
++            disposition->value().contains("name=\"static_file\""))
++        {
++            return part.content;
++        }
++    }
++    return {};
++}
++// Store firmware files within a bounded private directory.
++// Never treat the supplied name as a path.
++inline bool stageUpload(std::string_view name, std::string_view data,
++                        bool persist = true)
++{
++    if (name.empty() || name.size() > 128 || name.find("..") != name.npos ||
++        data.empty() || data.size() > 4U * 1024U * 1024U)
++    {
++        return false;
++    }
++    for (unsigned char c : name)
++    {
++        if (!std::isalnum(c) && c != '.' && c != '_' && c != '-')
++        {
++            return false;
++        }
++    }
++    if (!persist)
++    {
++        return true;
++    }
++    std::error_code ec;
++    const std::filesystem::path directory("/var/lib/x570d4u-bios-version/host-uploads");
++    std::filesystem::create_directories(directory, ec);
++    if (ec)
++    {
++        return false;
++    }
++    std::filesystem::permissions(directory, std::filesystem::perms::owner_all,
++                                 std::filesystem::perm_options::replace, ec);
++    if (ec)
++    {
++        return false;
++    }
++    const auto capacity = std::filesystem::space(directory, ec);
++    if (ec || capacity.available < data.size() + 8U * 1024U * 1024U)
++    {
++        return false;
++    }
++    const auto destination = directory / name;
++    const auto temporary = directory / (std::string(name) + ".new");
++    {
++        std::ofstream file(temporary, std::ios::binary | std::ios::trunc);
++        if (!file || !file.write(data.data(), static_cast<std::streamsize>(data.size())))
++        {
++            return false;
++        }
++    }
++    std::filesystem::rename(temporary, destination, ec);
++    return !ec;
++}
++
++inline bool isHost(const crow::Request& req)
++{
++    return req.ipAddress.to_string() == "169.254.0.18" ||
++           req.ipAddress.to_string() == "::ffff:169.254.0.18";
++}
++
++inline void respondStaged(const std::shared_ptr<bmcweb::AsyncResp>& resp,
++                          std::string_view name, std::string_view data,
++                          bool persist = true)
++{
++    if (!stageUpload(name, data, persist))
++    {
++        resp->res.result(boost::beast::http::status::bad_request);
++        return;
++    }
++    resp->res.result(boost::beast::http::status::created);
++    resp->res.addHeader(boost::beast::http::field::location,
++                        std::string("/redfish/v1/BiosStaticFiles/") + std::string(name));
++}
++
++} // namespace x570d4u
++
++inline void requestRoutesX570d4uRfInventory(App& app)
++{
++    BMCWEB_ROUTE(app, "/redfish/v1/BiosStaticFiles/")
++        .methods(boost::beast::http::verb::post)(
++            [](crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& resp) {
++                if (!x570d4u::isHost(req))
++                {
++                    resp->res.result(boost::beast::http::status::forbidden);
++                    return;
++                }
++                const auto parts = req.multipart();
++                if (parts.size() != 1)
++                {
++                    resp->res.result(boost::beast::http::status::bad_request);
++                    return;
++                }
++                const auto& part = parts.front();
++                const auto disposition = part.fields.find(boost::beast::http::field::content_disposition);
++                if (disposition == part.fields.end())
++                {
++                    resp->res.result(boost::beast::http::status::bad_request);
++                    return;
++                }
++                const std::string_view header(disposition->value().data(), disposition->value().size());
++                const auto start = header.find("filename=\"");
++                if (!header.contains("name=\"static_file\"") || start == header.npos)
++                {
++                    resp->res.result(boost::beast::http::status::bad_request);
++                    return;
++                }
++                const auto begin = start + 10;
++                const auto end = header.find('\"', begin);
++                if (end == header.npos)
++                {
++                    resp->res.result(boost::beast::http::status::bad_request);
++                    return;
++                }
++                x570d4u::respondStaged(resp, header.substr(begin, end - begin), part.content, false);
++            });
++
++    BMCWEB_ROUTE(app, "/redfish/v1/Registries/<str>/")
++        .methods(boost::beast::http::verb::post)(
++            [](crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& resp,
++               const std::string& name) {
++                if (!x570d4u::isHost(req) || !name.starts_with("BiosAttributeRegistry") || !name.ends_with(".json"))
++                {
++                    resp->res.result(boost::beast::http::status::forbidden);
++                    return;
++                }
++                x570d4u::respondStaged(resp, name, req.body());
++            });
++
++    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Smbios/")
++        .methods(boost::beast::http::verb::post)(
++            [](crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& resp,
++               const std::string& system) {
++                if (!x570d4u::isHost(req) || system != "Self")
++                {
++                    resp->res.result(boost::beast::http::status::forbidden);
++                    return;
++                }
++                const std::string_view type = req.getHeaderValue(boost::beast::http::field::content_type);
++                constexpr std::string_view prefix = "multipart/form-data; boundary=";
++                const std::string_view body = req.body();
++                if (!type.starts_with(prefix) || type.size() <= prefix.size() || type.size() > prefix.size() + 70)
++                {
++                    resp->res.result(boost::beast::http::status::bad_request);
++                    return;
++                }
++                const std::string boundary = "--" + std::string(type.substr(prefix.size()));
++                if (!body.starts_with(boundary + "\r\n"))
++                {
++                    resp->res.result(boost::beast::http::status::bad_request);
++                    return;
++                }
++                const auto headersEnd = body.find("\r\n\r\n", boundary.size());
++                if (headersEnd == body.npos || headersEnd > 2048 ||
++                    !body.substr(boundary.size(), headersEnd - boundary.size()).contains("name=\"file\""))
++                {
++                    resp->res.result(boost::beast::http::status::bad_request);
++                    return;
++                }
++                const auto begin = headersEnd + 4;
++                const auto end = body.find("\r\n" + boundary + "--", begin);
++                if (end == body.npos || !x570d4u::stageUpload("Smbios.dat", body.substr(begin, end - begin)))
++                {
++                    resp->res.result(boost::beast::http::status::bad_request);
++                    return;
++                }
++                resp->res.result(boost::beast::http::status::ok);
++            });
++
++    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Bios/")
++        .methods(boost::beast::http::verb::post)(
++            [](crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& resp,
++               const std::string& system) {
++                if (!x570d4u::isHost(req) || system != "Self")
++                {
++                    resp->res.result(boost::beast::http::status::forbidden);
++                    return;
++                }
++                x570d4u::respondStaged(resp, "bios.json", req.body());
++            });
++
++    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/InventoryData")
++        .methods(boost::beast::http::verb::get)(
++            [](crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& resp) {
++                if (!x570d4u::isHost(req))
++                {
++                    resp->res.result(boost::beast::http::status::forbidden);
++                    return;
++                }
++                auto& data = resp->res.jsonValue;
++                data["System"]["Id"] = "Self";
++                data["System"]["@odata.id"] = "/redfish/v1/Systems/Self";
++                data["System"]["Storage"]["@odata.id"] = "/redfish/v1/Systems/Self/Storage";
++                data["System"]["Memory"]["@odata.id"] = "/redfish/v1/Systems/Self/Memory";
++                data["System"]["Oem"]["Ami"]["Bios"]["Inventory"]["Crc"]["@odata.id"] = "/redfish/v1/Systems/Self/Oem/Ami/Inventory/Crc";
++                data["Chassis"] = {{"Id", "Self"}, {"@odata.id", "/redfish/v1/Chassis/Self"}};
++                data["SecureBoot"] = nlohmann::json::object();
++                data["Registries"] = nlohmann::json::array();
++                data["NetworkDeviceFunctions"] = nlohmann::json::array();
++            });
++
++    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/InventoryData")
++        .methods(boost::beast::http::verb::post)(
++            [](crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& resp) {
++                if (!x570d4u::isHost(req))
++                {
++                    resp->res.result(boost::beast::http::status::forbidden);
++                    return;
++                }
++                const auto parts = req.multipart();
++                if (parts.size() != 1 || !x570d4u::saveInventory(x570d4u::getPayload(req)))
++                {
++                    resp->res.result(boost::beast::http::status::bad_request);
++                    return;
++                }
++                resp->res.result(boost::beast::http::status::created);
++                resp->res.addHeader(boost::beast::http::field::location,
++                                    "/redfish/v1/Oem/Ami/InventoryData");
++            });
++
++    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/InventoryData")
++        .methods(boost::beast::http::verb::patch)(
++            [](crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& resp) {
++                if (!x570d4u::isHost(req))
++                {
++                    resp->res.result(boost::beast::http::status::forbidden);
++                    return;
++                }
++                const auto payload = nlohmann::json::parse(req.body(), nullptr, false);
++                if (!payload.is_object() || !payload.contains("BootComplete") ||
++                    !payload["BootComplete"].is_boolean())
++                {
++                    resp->res.result(boost::beast::http::status::bad_request);
++                    return;
++                }
++                if (payload["BootComplete"].get<bool>())
++                {
++                    std::error_code ec;
++                    std::filesystem::rename(x570d4u::pendingInventoryPath,
++                                            x570d4u::inventoryPath, ec);
++                    if (ec)
++                    {
++                        resp->res.result(boost::beast::http::status::conflict);
++                        return;
++                    }
++                }
++                resp->res.result(boost::beast::http::status::no_content);
++            });
++}
++} // namespace redfish

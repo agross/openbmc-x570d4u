@@ -1,0 +1,13 @@
+[Unit]
+Description=Instantiate the X570D4U NCT6796 hardware monitor
+After=systemd-udev-trigger.service
+Before=fan-speeds.service
+
+[Service]
+Type=simple
+ExecStart=/bin/sh /etc/enable-temperature-sensors.sh --monitor
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

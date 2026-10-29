@@ -1,0 +1,14 @@
+[Unit]
+Description=Configure X570D4U Redfish host-network endpoint
+Requires=sys-kernel-config.mount
+Wants=xyz.openbmc_project.Network.service systemd-networkd.service
+After=sys-kernel-config.mount xyz.openbmc_project.Network.service systemd-networkd.service
+Before=x570d4u-inventory-publisher.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/x570d4u-redfish-host-network
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

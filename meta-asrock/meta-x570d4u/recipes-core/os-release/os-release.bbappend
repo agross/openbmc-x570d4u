@@ -1,0 +1,2 @@
+DISTRO_VERSION = "3.1.0-dev-1649-g5c21ebb175-x570d4u-host-interface-r31"
+EXTENDED_VERSION = "${DISTRO_VERSION}"
