@@ -68,3 +68,29 @@ before rebuilding when necessary.
 Validate the image and your board's recovery procedure before flashing. Upstream
 updates require reviewing the overlay and patches against the new revision; the
 build script rejects an unapproved revision.
+
+## Recover a stalled host boot
+
+If the host hangs during BIOS boot, connect to the BMC over SSH as root and
+stop the web server socket and service:
+
+```sh
+systemctl stop bmcweb.socket bmcweb.service
+```
+
+This interrupts the BMC web UI and Redfish access. If boot still does not
+continue, bring down the USB network interface used by the BIOS to communicate
+with the BMC. Find its `usb-bmc*` name, then use that name below (typically
+`usb-bmc0`):
+
+```sh
+networkctl list
+networkctl down usb-bmc0
+```
+
+Once the host has booted, restore the USB link and web server:
+
+```sh
+networkctl up usb-bmc0
+systemctl start bmcweb.socket bmcweb.service
+```
