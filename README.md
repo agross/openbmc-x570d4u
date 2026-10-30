@@ -50,12 +50,15 @@ peak memory use.
 
 Provide a root SSH destination and the update archive from `output/`. The
 local machine needs Bash, SSH, `tar`, and `shasum`; the BMC needs Bash and
-`busctl`. Use an archive containing the four partition images (`image-u-boot`,
-`image-kernel`, `image-rofs`, and `image-rwfs`):
+`busctl`. Use the `.tar` archive containing the four partition images
+(`image-u-boot`, `image-kernel`, `image-rofs`, and `image-rwfs`). For example:
 
 ```sh
-./deploy.sh root@bmc.example output/UPDATE_ARCHIVE.tar
+./deploy.sh root@bmc.example output/x570d4u-20261030072412.tar
 ```
+
+The timestamp changes with each build. The `.all.tar` archive contains a
+full-flash image and is not accepted by `deploy.sh`.
 
 The script uploads and verifies the archive, prepares it for the next reset,
 verifies the prepared images, and reboots the BMC. It waits for the BMC to

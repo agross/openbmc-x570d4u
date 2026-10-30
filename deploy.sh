@@ -24,6 +24,8 @@ fi
 host=$1
 archive=$2
 
+printf 'Validating update archive: %s\n' "$archive"
+
 [[ -f $archive && -s $archive ]] || {
   echo 'Update archive not found or empty' >&2
   exit 1
@@ -48,6 +50,7 @@ for image in image-u-boot image-kernel image-rofs image-rwfs; do
   }
 done
 
+printf 'Connecting to BMC: %s\n' "$host"
 ssh "$host" 'test "$(id -u)" = 0' || {
   echo 'Root SSH access is required' >&2
   exit 1
@@ -66,6 +69,8 @@ current=$(get_running_version)
   exit 1
 }
 
+printf 'Current firmware: %s\nTarget firmware: %s\n' "$current" "$version"
+
 remote=$(ssh "$host" 'mktemp /tmp/openbmc-update.XXXXXXXX')
 [[ "$remote" =~ ^/tmp/openbmc-update\.[[:alnum:]]+$ ]] || {
   echo 'Invalid remote temporary path' >&2
@@ -73,8 +78,10 @@ remote=$(ssh "$host" 'mktemp /tmp/openbmc-update.XXXXXXXX')
 }
 
 trap 'ssh "$host" "rm -f $remote" >/dev/null 2>&1 || :' EXIT
+printf 'Uploading update archive to %s...\n' "$host"
 ssh "$host" "cat > $remote" <"$archive"
 
+echo 'Verifying uploaded archive...'
 local_hash=$(shasum -a 256 "$archive" | awk '{print $1}')
 remote_hash=$(ssh "$host" "sha256sum $remote" | awk '{print $1}')
 [[ $local_hash == "$remote_hash" ]] || {
@@ -82,6 +89,7 @@ remote_hash=$(ssh "$host" "sha256sum $remote" | awk '{print $1}')
   exit 1
 }
 
+echo 'Requesting firmware update...'
 result=$(
   ssh "$host" bash -s -- "$remote" <<'REMOTE'
 set -euo pipefail
@@ -136,6 +144,7 @@ object=$(printf '%s\n' "$result" | sed -n 's/^o "\([^"]*\)"$/\1/p')
   exit 1
 }
 
+printf 'Waiting for update preparation at %s...\n' "$object"
 prepared=false
 for ((attempt = 0; attempt < 60; attempt++)); do
   state=$(ssh "$host" \
@@ -160,6 +169,7 @@ done
 }
 
 # Static-flash updater copies the images to initramfs before reporting Active.
+echo 'Verifying prepared partition images...'
 for image in image-u-boot image-kernel image-rofs image-rwfs; do
   local_hash=$(tar -xOf "$archive" "$image" | shasum -a 256 | awk '{print $1}')
   remote_hash=$(ssh "$host" "sha256sum /run/initramfs/$image" | awk '{print $1}')
