@@ -1,0 +1,56 @@
+name: Build and release firmware
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      # OpenBMC needs more disk space than the default runner has free.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          docker image prune --all --force
+          df -h /
+
+      - name: Build firmware
+        run: ./build.sh
+
+      - name: Prepare release images
+        run: |
+          shopt -s nullglob
+          archives=()
+          for archive in output/x570d4u-*.tar; do
+            [[ ${archive##*/} =~ ^x570d4u-[0-9]{14}\.tar$ ]] && archives+=("$archive")
+          done
+          if (( ${#archives[@]} != 1 )) || [[ ! -f ${archives[0]} ]]; then
+            echo 'Expected exactly one firmware update archive' >&2
+            exit 1
+          fi
+          timestamp=${archives[0]#output/x570d4u-}
+          timestamp=${timestamp%.tar}
+          image="output/obmc-phosphor-image-x570d4u-${timestamp}.static.mtd"
+          if [[ ! -f $image ]] || [[ $(wc -c < "$image") -ne 67108864 ]]; then
+            echo 'Expected a 64 MiB full-flash image matching the update archive' >&2
+            exit 1
+          fi
+          mkdir release
+          cp -L "${archives[0]}" release/
+          cp -L "$image" "release/x570d4u-${timestamp}.socflash.bin"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: build-${{ github.run_id }}-${{ github.run_attempt }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: gh release create "$RELEASE_TAG" release/* --target "$RELEASE_COMMIT" --generate-notes

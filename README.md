@@ -46,6 +46,15 @@ The upstream Git repository, downloads, shared state, and build output remain
 in a Docker volume for reuse. Compilation concurrency is limited to reduce
 peak memory use.
 
+## Releases
+
+Run the **Build and release firmware** workflow from GitHub Actions to build
+the selected branch and publish its update archive as a GitHub Release. GitHub
+creates a tag for the release automatically. Builds require substantial disk
+space and can take several hours. Download the `x570d4u-*.tar` asset from the
+release for deployment. The `x570d4u-*.socflash.bin` asset is the raw
+full-flash image for initial programming with `socflash`.
+
 ## Deploy to the BMC
 
 Provide a root SSH destination and the update archive from `output/`. The
