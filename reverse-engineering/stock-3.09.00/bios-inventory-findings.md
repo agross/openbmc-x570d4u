@@ -80,13 +80,13 @@ A later BIOS boot trace captured requests to our OpenBMC receiver, not to stock 
 
 | Request | Purpose or evidence |
 | --- | --- |
-| `POST /redfish/v1/DynamicExtension/RedfishExtensions` | Five extension posts were attempted. Their bodies were not captured in the available record, so their contents and individual purposes remain unknown. |
-| `GET /redfish/v1/DynamicExtension/RedfishExtensions/<UUID>` | The BIOS queried extension IDs including `34E46539-1213-4208-9AB6-2D1C21A35523`, `24C5E8D6-7D92-4E54-916E-FEE44013F13F`, and `7F2CA6E3-55D5-4F37-A98C-CDD39B3CEAC4`. The IDs alone do not identify their schemas. |
+| `POST /redfish/v1/DynamicExtension/RedfishExtensions` | Five extension posts were attempted. Their bodies were not captured in the available record. Matching BIOS 1.79C archives identify five extension packages; see [dynamic extension research](redfish-dynamic-extension.md). |
+| `GET /redfish/v1/DynamicExtension/RedfishExtensions/<UUID>` | The BIOS queried extension IDs including `34E46539-1213-4208-9AB6-2D1C21A35523`, `24C5E8D6-7D92-4E54-916E-FEE44013F13F`, and `7F2CA6E3-55D5-4F37-A98C-CDD39B3CEAC4`. Stock defaults and BIOS archives identify the packages; see [dynamic extension research](redfish-dynamic-extension.md). |
 | `POST /redfish/v1/Systems/Self/Smbios` | The BIOS uploaded `Smbios.dat` to OpenBMC. Stock firmware contains the ASRock host-interface handler and cache described above. |
 | `POST /redfish/v1/Registries/BiosAttributeRegistry1AWQE.1.79.0.json` and `/redfish/v1/BiosStaticFiles` | The BIOS uploaded its attribute registry and BIOS setup assets, including `SetupData.xml`, `bios.json`, HTML, JavaScript and images. |
 | `POST /redfish/v1/Oem/Ami/InventoryData` | The BIOS inventory mechanism sends CPU, DIMM and PCIe data and a separate `BootComplete` notification. Stock firmware contains an AMI inventory handler. The final OpenBMC boot trace did not verify a real PCIe inventory upload. |
 
-BIOS static analysis also identified an AMI inventory CRC lookup for `CPU`, `DIMM` and `PCIE` groups. Matching CRCs can suppress the corresponding group upload. Neither the actual stock response body nor its status was established. Recovering the five extension payloads and stock responses requires further analysis or a capture from stock firmware.
+BIOS static analysis also identified an AMI inventory CRC lookup for `CPU`, `DIMM` and `PCIE` groups. Matching CRCs can suppress the corresponding group upload. Neither the actual stock response body nor its status was established. Matching BIOS 1.79C archives have since been identified; verifying the actual posted bytes and stock responses requires further analysis or a capture from stock firmware.
 
 ## Separate ASRock OEM BIOS-info command
 
