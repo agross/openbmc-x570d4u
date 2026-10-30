@@ -192,9 +192,9 @@ index 6cfeea4859..f6ade13ddb 100644
 +namespace x570d4u
 +{
 +constexpr std::string_view inventoryPath =
-+    "/var/lib/x570d4u-bios-version/rf-inventory.json";
++    "/var/lib/x570d4u-bios-uploads/rf-inventory.json";
 +constexpr std::string_view pendingInventoryPath =
-+    "/var/lib/x570d4u-bios-version/rf-inventory.pending.json";
++    "/var/lib/x570d4u-bios-uploads/rf-inventory.pending.json";
 +constexpr size_t maxInventorySize = 512U * 1024U;
 +
 +inline bool saveInventory(std::string_view payload)
@@ -275,7 +275,7 @@ index 6cfeea4859..f6ade13ddb 100644
 +        return true;
 +    }
 +    std::error_code ec;
-+    const std::filesystem::path directory("/var/lib/x570d4u-bios-version/host-uploads");
++    const std::filesystem::path directory("/var/lib/x570d4u-bios-uploads");
 +    std::filesystem::create_directories(directory, ec);
 +    if (ec)
 +    {

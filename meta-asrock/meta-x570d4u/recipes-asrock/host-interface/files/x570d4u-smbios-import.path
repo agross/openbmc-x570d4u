@@ -2,7 +2,7 @@
 Description=Watch host SMBIOS uploads
 
 [Path]
-PathChanged=/var/lib/x570d4u-bios-version/host-uploads/Smbios.dat
+PathChanged=/var/lib/x570d4u-bios-uploads/Smbios.dat
 
 [Install]
 WantedBy=multi-user.target

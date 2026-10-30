@@ -12,7 +12,7 @@
 
 namespace
 {
-constexpr const char* inputPath = "/var/lib/x570d4u-bios-version/host-uploads/Smbios.dat";
+constexpr const char* inputPath = "/var/lib/x570d4u-bios-uploads/Smbios.dat";
 constexpr const char* outputPath = "/var/lib/smbios/smbios2";
 
 bool convert(const std::vector<uint8_t>& source, std::vector<uint8_t>& output)

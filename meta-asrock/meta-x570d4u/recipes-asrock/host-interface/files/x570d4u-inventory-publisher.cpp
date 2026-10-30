@@ -15,8 +15,8 @@
 namespace
 {
 constexpr const char* root = "/xyz/openbmc_project/inventory";
-constexpr const char* rfInventory = "/var/lib/x570d4u-bios-version/rf-inventory.json";
-constexpr const char* smbiosFile = "/var/lib/x570d4u-bios-version/host-uploads/Smbios.dat";
+constexpr const char* rfInventory = "/var/lib/x570d4u-bios-uploads/rf-inventory.json";
+constexpr const char* smbiosFile = "/var/lib/x570d4u-bios-uploads/Smbios.dat";
 constexpr const char* service = "xyz.openbmc_project.Inventory.Ami";
 
 enum class Kind : uint8_t
