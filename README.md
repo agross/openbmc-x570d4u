@@ -62,9 +62,8 @@ verifies the prepared images, and reboots the BMC. It waits for the BMC to
 return and checks the running firmware version. If preparation fails after the
 update is accepted, it may still apply at the next BMC reset. The host is not
 rebooted. The new firmware version must differ from the running version so the
-script can verify the result. Set a new version in
-[os-release.bbappend](meta-asrock/meta-x570d4u/recipes-core/os-release/os-release.bbappend)
-before rebuilding when necessary.
+script can verify the result. Each build includes a description of the pinned
+upstream revision and a UTC timestamp in its firmware version.
 
 Validate the image and your board's recovery procedure before flashing. Upstream
 updates require reviewing the overlay and patches against the new revision; the

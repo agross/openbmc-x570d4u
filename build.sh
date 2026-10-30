@@ -72,10 +72,16 @@ CACHE
     printf '%s\n' 'BB_HASHSERVE_DB_DIR = "${SSTATE_DIR}"' >>conf/local.conf
   fi
 
+  # Give each image a distinct UTC version while retaining the upstream revision.
+  build_timestamp=$(date --utc +%Y-%m-%d-%H-%M-%S)
+  upstream_revision=$(git --git-dir=/work/upstream.git describe --tags --long "$revision")
+
   # Avoid exhausting memory when several recipes compile at once.
-  cat >conf/openbmc-build.conf <<'CONFIG'
+  cat >conf/openbmc-build.conf <<CONFIG
 BB_NUMBER_THREADS = "8"
 PARALLEL_MAKE = "-j8"
+X570D4U_UPSTREAM_REVISION = "$upstream_revision"
+X570D4U_BUILD_TIMESTAMP = "$build_timestamp"
 CONFIG
   if ! grep -Fxq 'require conf/openbmc-build.conf' conf/local.conf; then
     printf '%s\n' 'require conf/openbmc-build.conf' >>conf/local.conf
