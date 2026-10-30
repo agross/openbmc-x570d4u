@@ -43,7 +43,8 @@ Build the container and firmware, then copy the resulting artifacts to `output/`
 Each build creates a fresh source tree from the pinned revision in
 `openbmc-revision`, applies the overlay, and removes the source tree afterwards.
 The upstream Git repository, downloads, shared state, and build output remain
-in a Docker volume for reuse.
+in a Docker volume for reuse. Compilation concurrency is limited to reduce
+peak memory use.
 
 ## Deploy to the BMC
 

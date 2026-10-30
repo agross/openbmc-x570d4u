@@ -72,6 +72,15 @@ CACHE
     printf '%s\n' 'BB_HASHSERVE_DB_DIR = "${SSTATE_DIR}"' >>conf/local.conf
   fi
 
+  # Avoid exhausting memory when several recipes compile at once.
+  cat >conf/openbmc-build.conf <<'CONFIG'
+BB_NUMBER_THREADS = "8"
+PARALLEL_MAKE = "-j8"
+CONFIG
+  if ! grep -Fxq 'require conf/openbmc-build.conf' conf/local.conf; then
+    printf '%s\n' 'require conf/openbmc-build.conf' >>conf/local.conf
+  fi
+
   bitbake obmc-phosphor-image
   cp --recursive "$build_dir/tmp/deploy/images/x570d4u/." /output/
   exit
