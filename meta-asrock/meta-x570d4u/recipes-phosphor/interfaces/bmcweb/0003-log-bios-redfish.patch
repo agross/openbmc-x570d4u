@@ -1,0 +1,71 @@
+From: OpenBMC X570D4U
+Subject: [PATCH] Log BIOS Redfish requests and responses
+
+Upstream-Status: Inappropriate [board-specific firmware compatibility]
+
+--- a/http/http_connection.hpp
++++ b/http/http_connection.hpp
+@@ -44,6 +44,10 @@
+ #include <boost/optional/optional.hpp>
+ #include <boost/url/url_view.hpp>
+ 
++#include <systemd/sd-journal.h>
++#include <syslog.h>
++
++#include <algorithm>
+ #include <bit>
+ #include <chrono>
+ #include <cstddef>
+@@ -553,6 +557,33 @@
+   private:
+     bool amiHostInterface = false;
+ 
++    void logBiosRedfish(std::string_view method, std::string_view target,
++                        unsigned int status = 0) const
++    {
++        if (!amiHostInterface ||
++            (ip.to_string() != "169.254.0.18" &&
++             ip.to_string() != "::ffff:169.254.0.18"))
++        {
++            return;
++        }
++        if (!target.starts_with("/redfish/"))
++        {
++            return;
++        }
++        const int methodLength = static_cast<int>(std::min(method.size(), size_t{32}));
++        const int pathLength = static_cast<int>(target.size());
++        if (status == 0)
++        {
++            sd_journal_print(LOG_INFO, "BIOS Redfish request %.*s %.*s",
++                             methodLength, method.data(), pathLength, target.data());
++        }
++        else
++        {
++            sd_journal_print(LOG_INFO, "BIOS Redfish response %.*s %.*s %u",
++                             methodLength, method.data(), pathLength, target.data(), status);
++        }
++    }
++
+     uint64_t getContentLengthLimit()
+     {
+         if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
+@@ -660,6 +691,7 @@
+         }
+         auto& parse = *parser;
+         const auto& value = parser->get();
++        logBiosRedfish(value.method_string(), value.target());
+ 
+         const bool amiUpload = amiHostInterface &&
+             (ip.to_string() == "169.254.0.18" || ip.to_string() == "::ffff:169.254.0.18") &&
+@@ -877,6 +909,10 @@
+         {
+             urlView = req->url();
+         }
++        if (req != nullptr && res.result() != boost::beast::http::status::continue_)
++        {
++            logBiosRedfish(req->methodString(), req->target(), res.resultInt());
++        }
+         res.preparePayload(urlView);
+ 
+         startDeadline(DeadlineTimerType::Default);

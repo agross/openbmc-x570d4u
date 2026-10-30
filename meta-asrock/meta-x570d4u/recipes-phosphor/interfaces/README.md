@@ -11,3 +11,11 @@ certificate handling.
 
 The host firmware may suppress inventory groups when its CRC checks match.
 See [host interface](../../recipes-asrock/README.md).
+
+BIOS Redfish requests and their responses are logged by bmcweb at info level.
+Logs include the method, request target (including query strings), and response
+status; request bodies are omitted. View them with:
+
+```sh
+journalctl --unit bmcweb.service
+```
