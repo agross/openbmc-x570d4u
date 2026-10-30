@@ -34,21 +34,13 @@ if [[ ${1-} == --build ]]; then
     git --git-dir=/work/upstream.git fetch origin
   fi
 
-  # The stable path lets BitBake reuse its build directory and caches.
-  if [[ -e /work/source || -L /work/source ]]; then
-    [[ -d /work/source && ! -L /work/source &&
-      -f /work/source/.openbmc-build-source ]] || {
-      echo 'Refusing to remove an unrecognized /work/source' >&2
-      exit 1
-    }
-    rm -rf /work/source
-  fi
+  # Recreate the source tree at a stable path for BitBake caches.
+  rm -rf /work/source
 
   source_dir=$(mktemp -d /work/source.XXXXXXXX)
   trap 'rm -rf "$source_dir"' EXIT
   git clone --shared --no-checkout /work/upstream.git "$source_dir"
   git -C "$source_dir" checkout --detach "$revision"
-  touch "$source_dir/.openbmc-build-source"
   mv "$source_dir" /work/source
   source_dir=/work/source
 
