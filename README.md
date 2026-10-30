@@ -51,8 +51,10 @@ peak memory use.
 Run the **Build and release firmware** workflow from GitHub Actions to build
 the selected branch and publish its update archive as a GitHub Release. GitHub
 creates a tag for the release automatically. Builds require substantial disk
-space and can take several hours. Download the `x570d4u-*.tar` asset from the
-release for deployment. The `x570d4u-*.socflash.bin` asset is the raw
+space and can take several hours. The workflow caches BitBake shared state
+between runs; downloaded sources are fetched again. GitHub may evict caches
+when they exceed the repository limit or remain unused. Download the
+`x570d4u-*.tar` asset from the release for deployment. The `x570d4u-*.socflash.bin` asset is the raw
 full-flash image for initial programming with `socflash`.
 
 ## Deploy to the BMC

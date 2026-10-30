@@ -23,8 +23,29 @@ jobs:
           docker image prune --all --force
           df -h /
 
+      - name: Prepare build volume
+        run: |
+          mkdir -p "$RUNNER_TEMP/openbmc-work/build/sstate-cache"
+          docker volume create --driver local \
+            --opt type=none --opt o=bind \
+            --opt "device=$RUNNER_TEMP/openbmc-work" openbmc-x570d4u
+
+      - name: Restore BitBake shared state
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/openbmc-work/build/sstate-cache
+          key: sstate-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('openbmc-revision', 'Dockerfile') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            sstate-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('openbmc-revision', 'Dockerfile') }}-
+
       - name: Build firmware
         run: ./build.sh
+
+      - name: Save BitBake shared state
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/openbmc-work/build/sstate-cache
+          key: sstate-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('openbmc-revision', 'Dockerfile') }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Prepare release images
         run: |
