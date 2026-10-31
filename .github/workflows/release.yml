@@ -39,7 +39,27 @@ jobs:
             sstate-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('openbmc-revision', 'Dockerfile') }}-
 
       - name: Build firmware
-        run: ./build.sh
+        run: |
+          log_resources() {
+            echo "Resource usage at $(date --utc --iso-8601=seconds)"
+            free --mebi
+            df --human-readable / "$RUNNER_TEMP"
+          }
+
+          log_resources
+          (
+            while sleep 60 >/dev/null 2>&1; do
+              log_resources
+            done
+          ) &
+          monitor_pid=$!
+          cleanup() {
+            kill "$monitor_pid" 2>/dev/null || true
+            wait "$monitor_pid" 2>/dev/null || true
+            log_resources || true
+          }
+          trap cleanup EXIT
+          ./build.sh
 
       - name: Save BitBake shared state
         uses: actions/cache/save@v4
