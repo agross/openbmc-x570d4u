@@ -70,8 +70,8 @@ CACHE
 
   # Avoid exhausting memory when several recipes compile at once.
   cat >conf/openbmc-build.conf <<CONFIG
-BB_NUMBER_THREADS = "8"
-PARALLEL_MAKE = "-j8"
+BB_NUMBER_THREADS = "4"
+PARALLEL_MAKE = "-j4"
 X570D4U_UPSTREAM_REVISION = "$upstream_revision"
 X570D4U_BUILD_TIMESTAMP = "$build_timestamp"
 CONFIG
