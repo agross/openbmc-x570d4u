@@ -15,6 +15,13 @@ fi
 
 if [[ ${1-} == --build ]]; then
   revision=$(cat /adjustments/openbmc-revision)
+  build_threads=${BUILD_THREADS:-8}
+  make_threads=${MAKE_THREADS:-8}
+
+  [[ $build_threads =~ ^[1-9][0-9]*$ && $make_threads =~ ^[1-9][0-9]*$ ]] || {
+    echo 'BUILD_THREADS and MAKE_THREADS must be positive integers' >&2
+    exit 1
+  }
 
   [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || {
     echo 'Invalid OpenBMC revision' >&2
@@ -70,8 +77,8 @@ CACHE
 
   # Avoid exhausting memory when several recipes compile at once.
   cat >conf/openbmc-build.conf <<CONFIG
-BB_NUMBER_THREADS = "4"
-PARALLEL_MAKE = "-j4"
+BB_NUMBER_THREADS = "$build_threads"
+PARALLEL_MAKE = "-j$make_threads"
 X570D4U_UPSTREAM_REVISION = "$upstream_revision"
 X570D4U_BUILD_TIMESTAMP = "$build_timestamp"
 CONFIG
@@ -101,6 +108,8 @@ docker run \
   --rm \
   --cap-add SYS_ADMIN \
   --cap-add SYS_NICE \
+  --env BUILD_THREADS="${BUILD_THREADS:-8}" \
+  --env MAKE_THREADS="${MAKE_THREADS:-8}" \
   --volume openbmc-x570d4u:/work \
   --volume "$root:/adjustments:ro" \
   --volume "$root/output:/output" \
