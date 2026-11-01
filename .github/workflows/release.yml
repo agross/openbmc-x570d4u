@@ -39,6 +39,7 @@ jobs:
             sstate-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('openbmc-revision', 'Dockerfile') }}-
 
       - name: Build firmware
+        id: build
         env:
           BUILD_THREADS: 4
           MAKE_THREADS: 4
@@ -59,12 +60,19 @@ jobs:
           cleanup() {
             kill "$monitor_pid" 2>/dev/null || true
             wait "$monitor_pid" 2>/dev/null || true
+            # Stop any surviving build container before saving its shared state.
+            containers=$(docker ps --quiet --filter ancestor=openbmc-x570d4u)
+            if [[ -n $containers ]]; then
+              docker stop --time 30 $containers
+            fi
             log_resources || true
           }
           trap cleanup EXIT
-          ./build.sh
+          # Reserve time within the six-hour job limit to save shared state.
+          timeout --signal=TERM --kill-after=2m 315m ./build.sh
 
       - name: Save BitBake shared state
+        if: ${{ !cancelled() && (steps.build.outcome == 'success' || steps.build.outcome == 'failure') }}
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/openbmc-work/build/sstate-cache
