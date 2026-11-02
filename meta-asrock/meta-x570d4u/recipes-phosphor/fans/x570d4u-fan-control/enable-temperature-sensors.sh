@@ -37,6 +37,7 @@ ensure_sensor() {
 }
 monitor_sensor() {
     state=
+    refresh_pending=false
     while :; do
         quiet=true
         if ensure_sensor; then
@@ -45,6 +46,19 @@ monitor_sensor() {
             next=reattaching
         fi
         quiet=false
+        if [ "$recreated" = true ] || [ "$next" = reattaching ]; then
+            refresh_pending=true
+        fi
+        # Recreated sysfs paths do not repair dbus-sensors' open file handles.
+        # Wait for labels, and retry a failed refresh on the next monitor pass.
+        if [ "$next" = available ] && [ "$refresh_pending" = true ]; then
+            if systemctl try-restart xyz.openbmc_project.hwmontempsensor.service; then
+                refresh_pending=false
+                log "refreshed temperature sensor service after device recovery"
+            else
+                log "temperature sensor service refresh failed; retrying"
+            fi
+        fi
         if [ "$next" != "$state" ]; then
             case "$next" in
                 available) log "temperature sensor available" ;;

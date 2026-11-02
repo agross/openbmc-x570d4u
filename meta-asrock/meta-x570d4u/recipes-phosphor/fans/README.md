@@ -53,7 +53,11 @@ integer literals otherwise produce empty D-Bus arrays.
 safety hook. The recovery service manages I2C device `1-002d`, checking for the
 `TSI0_TEMP` label every five seconds. If a host reboot leaves an unusable
 device behind, it removes it and retries creation. This hardware recovery is
-still required independently of swampd. CPU temperature comes from D-Bus;
+still required independently of swampd. Once temperature labels return, the
+monitor uses `systemctl try-restart` to refresh a running `hwmontempsensor`:
+device recreation invalidates its open sysfs handles even when paths stay the
+same. Failed refresh requests are retried on the next monitor pass; a healthy,
+unchanged device does not cause restarts. CPU temperature comes from D-Bus;
 the former direct-hwmon `CPUTIN` fallback is replaced by failsafe output.
 
 Before deploying a changed policy, verify the physical PWM mapping, normal
