@@ -1,0 +1,260 @@
+From: Local OpenBMC configuration <root@localhost>
+Subject: [PATCH] Pin X570D4U IPMI sensor numbers and SDR record IDs
+
+Dynamic numbering uses positions in the populated D-Bus sensor tree. PWM
+sensors and temporarily absent hardware therefore change existing monitoring
+identities. Reserve board sensor numbers and traverse sparse SDR IDs, keeping
+FAN6_1 at 5, reserving category ranges for later additions, and keeping
+non-sensor records in a separate range.
+
+Upstream-Status: Inappropriate [X570D4U board sensor ABI]
+
+--- a/dbus-sdr/sdrutils.cpp
++++ b/dbus-sdr/sdrutils.cpp
+@@ -252,10 +252,59 @@
+
+     sensorNumMapPtr = std::make_shared<SensorNumMap>();
+
+-    uint16_t sensorNum = 0;
+-    uint16_t sensorIndex = 0;
++    // Board ABI: reserve 0-99 for fans (PWM at 50), 100-199 for voltage,
++    // and 200-299 for temperature. Never reuse an assigned number; 255 is
++    // reserved by IPMI. New board sensors get a free slot in their category.
++    static const std::map<std::string, uint16_t> sensorNumbers = {
++        {"/xyz/openbmc_project/sensors/fan_tach/FAN1", 0},
++        {"/xyz/openbmc_project/sensors/fan_tach/FAN2", 1},
++        {"/xyz/openbmc_project/sensors/fan_tach/FAN3", 2},
++        {"/xyz/openbmc_project/sensors/fan_tach/FAN4_1", 3},
++        {"/xyz/openbmc_project/sensors/fan_tach/FAN5_1", 4},
++        {"/xyz/openbmc_project/sensors/fan_tach/FAN6_1", 5},
++        {"/xyz/openbmc_project/sensors/temperature/CPU_Temp", 200},
++        {"/xyz/openbmc_project/sensors/temperature/Card_Side_Temp", 201},
++        {"/xyz/openbmc_project/sensors/temperature/DDR4_A1_Temp", 202},
++        {"/xyz/openbmc_project/sensors/temperature/DDR4_A2_Temp", 203},
++        {"/xyz/openbmc_project/sensors/temperature/DDR4_B1_Temp", 204},
++        {"/xyz/openbmc_project/sensors/temperature/DDR4_B2_Temp", 205},
++        {"/xyz/openbmc_project/sensors/temperature/LAN_Local_Temp", 206},
++        {"/xyz/openbmc_project/sensors/temperature/MB_Aux_Temp", 207},
++        {"/xyz/openbmc_project/sensors/temperature/MB_Temp", 208},
++        {"/xyz/openbmc_project/sensors/temperature/Onboard_LAN_Temp", 209},
++        {"/xyz/openbmc_project/sensors/temperature/X570_Temp", 210},
++        {"/xyz/openbmc_project/sensors/voltage/3V", 100},
++        {"/xyz/openbmc_project/sensors/voltage/3VSB", 101},
++        {"/xyz/openbmc_project/sensors/voltage/5V", 102},
++        {"/xyz/openbmc_project/sensors/voltage/5VSB", 103},
++        {"/xyz/openbmc_project/sensors/voltage/12V", 104},
++        {"/xyz/openbmc_project/sensors/voltage/APU_VDDP", 105},
++        {"/xyz/openbmc_project/sensors/voltage/PM_VDDCR", 106},
++        {"/xyz/openbmc_project/sensors/voltage/PM_VDDCR_S5", 107},
++        {"/xyz/openbmc_project/sensors/voltage/PM_VDD_CLDO", 108},
++        {"/xyz/openbmc_project/sensors/voltage/VCCM", 109},
++        {"/xyz/openbmc_project/sensors/voltage/VCPU", 110},
++        {"/xyz/openbmc_project/sensors/voltage/VSOC", 111},
++        {"/xyz/openbmc_project/sensors/fan_pwm/Pwm_1", 50},
++        {"/xyz/openbmc_project/sensors/fan_pwm/Pwm_2", 51},
++        {"/xyz/openbmc_project/sensors/fan_pwm/Pwm_3", 52},
++        {"/xyz/openbmc_project/sensors/fan_pwm/Pwm_4", 53},
++        {"/xyz/openbmc_project/sensors/fan_pwm/Pwm_5", 54},
++        {"/xyz/openbmc_project/sensors/fan_pwm/Pwm_6", 55},
++    };
++
++    uint16_t sensorNum = 300;
++    uint16_t sensorIndex = sensorNum;
+     for (const auto& sensor : *sensorTree)
+     {
++        auto fixed = sensorNumbers.find(sensor.first);
++        if (fixed != sensorNumbers.end())
++        {
++            sensorNumMapPtr->insert(
++                SensorNumMap::value_type(fixed->second, sensor.first));
++            continue;
++        }
++        // Retain dynamic discovery for additional sensors, outside board slots.
+         sensorNumMapPtr->insert(
+             SensorNumMap::value_type(sensorNum, sensor.first));
+         sensorIndex++;
+--- a/dbus-sdr/sensorcommands.cpp
++++ b/dbus-sdr/sensorcommands.cpp
+@@ -2153,59 +2153,62 @@
+     uint8_t readBytes = std::numeric_limits<uint8_t>::max())
+ {
+     recordData.clear();
+-    size_t lastRecord = ipmi::getNumberOfSensors() +
+-                        ipmi::sensor::getOtherSensorsCount(ctx) - 1;
+-    uint16_t nextRecord(recordID + 1);
+-
+-    if (recordID == lastRecordIndex)
++    // Sensor numbers and SDR record IDs are stable board identities, not
++    // positions in the currently populated D-Bus tree. Keep non-sensor SDRs
++    // above all supported sensor LUNs so they cannot collide with sensor IDs.
++    constexpr uint16_t otherRecordBase = 0x400;
++    std::shared_ptr<SensorNumMap> sensorMap;
++    details::getSensorNumMap(sensorMap);
++    const size_t otherCount = ipmi::sensor::getOtherSensorsCount(ctx);
++    if (!sensorMap ||
++        otherCount > static_cast<size_t>(lastRecordIndex - otherRecordBase) ||
++        (sensorMap->empty() && otherCount == 0))
++    {
++        return GENERAL_ERROR;
++    }
++    const auto& sensors = sensorMap->left;
++    const uint16_t lastRecord = otherCount != 0
++                                    ? otherRecordBase + otherCount - 1
++                                    : sensors.rbegin()->first;
++    // 0 and 0xffff mean first and last record, including when slot 0 is absent.
++    if (recordID == 0)
++    {
++        recordID = sensors.empty() ? otherRecordBase : sensors.begin()->first;
++    }
++    else if (recordID == lastRecordIndex)
+     {
+         recordID = lastRecord;
+     }
+-    if (recordID == lastRecord)
+-    {
+-        nextRecord = lastRecordIndex;
+-    }
+-    if (recordID > lastRecord)
+-    {
+-        lg2::error("getSensorDataRecord: recordID > lastRecord error");
++    if (recordID >= otherRecordBase)
++    {
++        const size_t index = recordID - otherRecordBase;
++        if (index >= otherCount ||
++            ipmi::sensor::getOtherSensorsDataRecord(
++                ctx, ipmi::getNumberOfSensors() + index, recordData) < 0 ||
++            recordData.size() < sizeof(get_sdr::SensorDataRecordHeader))
++        {
++            return GENERAL_ERROR;
++        }
++        auto* header = reinterpret_cast<get_sdr::SensorDataRecordHeader*>(
++            recordData.data());
++        header->recordId = recordID;
++        return recordID == lastRecord ? lastRecordIndex : recordID + 1;
++    }
++    auto sensor = sensors.find(recordID);
++    if (sensor == sensors.end())
++    {
+         return GENERAL_ERROR;
+     }
+-    if (recordID >= ipmi::getNumberOfSensors())
+-    {
+-        if (auto err = ipmi::sensor::getOtherSensorsDataRecord(ctx, recordID,
+-                                                               recordData);
+-            err < 0)
+-        {
+-            return lastRecordIndex;
+-        }
+-        return nextRecord;
+-    }
+-
+-    // Perform a incremental scan of the SDR Record ID's and translate the
+-    // first 765 SDR records (i.e. maxIPMISensors) into IPMI Sensor
+-    // Numbers. The IPMI sensor numbers are not linear, and have a reserved
+-    // gap at 0xff. This code creates 254 sensors per LUN, excepting LUN 2
+-    // which has special meaning.
++    auto next = std::next(sensor);
++    const uint16_t nextRecord = next != sensors.end()
++                                    ? next->first
++                                    : (otherCount != 0 ? otherRecordBase
++                                                       : lastRecordIndex);
++    const uint16_t sensNumFromRecID = sensor->first;
++    ctx->lun = static_cast<uint8_t>(sensNumFromRecID >> 8);
+     std::string connection;
+     std::string path;
+     std::vector<std::string> interfaces;
+-    uint16_t sensNumFromRecID{recordID};
+-    if ((recordID > lun0MaxSensorNum) && (recordID < lun1MaxSensorNum))
+-    {
+-        // LUN 0 has one reserved sensor number. Compensate here by adding one
+-        // to the record ID
+-        sensNumFromRecID = recordID + 1;
+-        ctx->lun = lun1;
+-    }
+-    else if ((recordID >= lun1MaxSensorNum) && (recordID < maxIPMISensors))
+-    {
+-        // LUN 0, 1 have a reserved sensor number. Compensate here by adding 2
+-        // to the record ID. Skip all 256 sensors in LUN 2, as it has special
+-        // rules governing its use.
+-        sensNumFromRecID = recordID + (maxSensorsPerLUN + 1) + 2;
+-        ctx->lun = lun3;
+-    }
+-
+     auto status =
+         getSensorConnection(ctx, static_cast<uint8_t>(sensNumFromRecID),
+                             connection, path, &interfaces);
+@@ -2334,59 +2337,31 @@
+         return ipmi::responseResponseError();
+     }
+     uint16_t numSensors{ipmi::getNumberOfSensors()};
++    std::shared_ptr<SensorNumMap> sensorMap;
++    details::getSensorNumMap(sensorMap);
++    if (!sensorMap)
++    {
++        return ipmi::responseResponseError();
++    }
++    std::array<uint16_t, 4> sensorsPerLun{};
++    for (const auto& sensor : sensorMap->left)
++    {
++        const auto lun = static_cast<uint8_t>(sensor.first >> 8);
++        sensorsPerLun.at(lun)++;
++        lunsAndDynamicPopulation |= static_cast<uint8_t>(1U << lun);
++    }
+     if (operation.value_or(0) == getSdrCount)
+     {
+         sdrCount = numSensors + ipmi::sensor::getOtherSensorsCount(ctx) - 1;
+     }
+     else if (operation.value_or(0) == getSensorCount)
+     {
+-        // Return the number of sensors attached to the LUN
+-        if ((ctx->lun == lun0) && (numSensors > 0))
+-        {
+-            sdrCount =
+-                (numSensors > maxSensorsPerLUN) ? maxSensorsPerLUN : numSensors;
+-        }
+-        else if ((ctx->lun == lun1) && (numSensors > maxSensorsPerLUN))
+-        {
+-            sdrCount = (numSensors > (2 * maxSensorsPerLUN))
+-                           ? maxSensorsPerLUN
+-                           : (numSensors - maxSensorsPerLUN) & maxSensorsPerLUN;
+-        }
+-        else if (ctx->lun == lun3)
+-        {
+-            if (numSensors <= maxIPMISensors)
+-            {
+-                sdrCount = (numSensors - (2 * maxSensorsPerLUN)) &
+-                           maxSensorsPerLUN;
+-            }
+-            else
+-            {
+-                throw std::out_of_range(
+-                    "Maximum number of IPMI sensors exceeded.");
+-            }
+-        }
++        // Count populated slots in the requested LUN, not the highest ID.
++        sdrCount = ctx->lun < sensorsPerLun.size() ? sensorsPerLun[ctx->lun] : 0;
+     }
+     else
+     {
+         return ipmi::responseInvalidFieldRequest();
+-    }
+-
+-    // Flag which LUNs have sensors associated
+-    if (numSensors > 0)
+-    {
+-        lunsAndDynamicPopulation |= 1;
+-    }
+-    if (numSensors > maxSensorsPerLUN)
+-    {
+-        lunsAndDynamicPopulation |= 2;
+-    }
+-    if (numSensors >= (maxSensorsPerLUN * 2))
+-    {
+-        lunsAndDynamicPopulation |= 8;
+-    }
+-    if (numSensors > maxIPMISensors)
+-    {
+-        throw std::out_of_range("Maximum number of IPMI sensors exceeded.");
+     }
+
+     return ipmi::responseSuccess(sdrCount, lunsAndDynamicPopulation,

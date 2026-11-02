@@ -8,7 +8,8 @@ Stock firmware was investigated using the [REA reverse-engineering skill](https:
 
 - Board monitoring: NCT6796 CPU and board temperatures, four DIMM temperatures,
   twelve voltage rails, and all six fan-header sensor objects. IPMI keeps the
-  historical temperature names. An unpopulated fan can report unavailable;
+  historical temperature names and stable sensor IDs across reboots and sensor
+  availability changes. An unpopulated fan can report unavailable;
   battery voltage is omitted until its acquisition is understood.
 - Corrected FAN4–FAN6 tachometer channels and PWM names matching the physical
   headers. A configurable fan controller supports temperature curves, fixed
@@ -23,6 +24,7 @@ The included fan policy reflects one system's fan population and cooling needs.
 Review it for your hardware before use. See the recipe documentation for
 [fan control](meta-asrock/meta-x570d4u/recipes-phosphor/fans/README.md),
 [sensors](meta-asrock/meta-x570d4u/recipes-phosphor/configuration/README.md),
+[IPMI monitoring](meta-asrock/meta-x570d4u/recipes-phosphor/ipmi/README.md),
 [UID LED](meta-asrock/meta-x570d4u/recipes-phosphor/leds/README.md),
 [kernel changes](meta-asrock/meta-x570d4u/recipes-kernel/linux/README.md),
 [host interface](meta-asrock/meta-x570d4u/recipes-asrock/README.md), and
