@@ -11,7 +11,7 @@ Upstream-Status: Inappropriate [X570D4U board sensor ABI]
 
 --- a/dbus-sdr/sdrutils.cpp
 +++ b/dbus-sdr/sdrutils.cpp
-@@ -252,10 +252,59 @@
+@@ -252,10 +252,60 @@
 
      sensorNumMapPtr = std::make_shared<SensorNumMap>();
 
@@ -50,6 +50,7 @@ Upstream-Status: Inappropriate [X570D4U board sensor ABI]
 +        {"/xyz/openbmc_project/sensors/voltage/VCCM", 109},
 +        {"/xyz/openbmc_project/sensors/voltage/VCPU", 110},
 +        {"/xyz/openbmc_project/sensors/voltage/VSOC", 111},
++        {"/xyz/openbmc_project/sensors/voltage/VBAT", 112},
 +        {"/xyz/openbmc_project/sensors/fan_pwm/Pwm_1", 50},
 +        {"/xyz/openbmc_project/sensors/fan_pwm/Pwm_2", 51},
 +        {"/xyz/openbmc_project/sensors/fan_pwm/Pwm_3", 52},

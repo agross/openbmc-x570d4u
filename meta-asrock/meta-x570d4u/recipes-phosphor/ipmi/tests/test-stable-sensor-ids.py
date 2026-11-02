@@ -121,12 +121,13 @@ bool constructVrSdr(Context::ptr ctx,const std::unordered_set<std::string>& p,
 ''' + sdr + info + r'''
 }
 const std::string prefix = "/xyz/openbmc_project/sensors/";
-void populate(bool pwm, bool missing) {
+void populate(bool pwm, bool missing, bool battery) {
     tree=std::make_shared<SensorSubTree>(); ++generation;
     for (auto name : {"FAN1","FAN2","FAN3","FAN4_1","FAN5_1","FAN6_1"})
         (*tree)[prefix+"fan_tach/"+name]=0;
     (*tree)[prefix+"temperature/CPU_Temp"]=0;
     (*tree)[prefix+"voltage/12V"]=0;
+    if(battery) (*tree)[prefix+"voltage/VBAT"]=0;
     if(pwm) for(int n=1;n<=6;++n) (*tree)[prefix+"fan_pwm/Pwm_"+std::to_string(n)]=0;
     if(missing) {
         tree->erase(prefix+"fan_tach/FAN1");
@@ -160,13 +161,15 @@ std::vector<int> traverse() {
 }
 int main() {
     // Real numbering function, repeated tree rebuilds and new process equivalent.
-    for(int repeat=0;repeat<3;++repeat) for(bool pwm:{true,false}) for(bool missing:{false,true}) {
-        populate(pwm,missing);
+    for(int repeat=0;repeat<3;++repeat) for(bool pwm:{true,false}) for(bool missing:{false,true}) for(bool battery:{true,false}) {
+        populate(pwm,missing,battery);
         assert(getSensorNumberFromPath(prefix+"fan_tach/FAN6_1")==5);
         assert(getSensorNumberFromPath(prefix+"voltage/12V")==104);
+        if(battery) assert(getSensorNumberFromPath(prefix+"voltage/VBAT")==112);
         if(!missing) assert(getSensorNumberFromPath(prefix+"temperature/CPU_Temp")==200);
         if(pwm) assert(getSensorNumberFromPath(prefix+"fan_pwm/Pwm_6")==55);
         auto ids=traverse();
+        assert((std::find(ids.begin(),ids.end(),112)!=ids.end())==battery);
         auto ctx=std::make_shared<ipmi::Context>();
         auto info=ipmi::ipmiSensorGetDeviceSdrInfo(ctx,0);
         assert(info.status==0 && info.count==tree->size() && info.flags==0x81);
@@ -192,7 +195,7 @@ int main() {
     otherCount=2; assert(traverse()==std::vector<int>({0x400,0x401}));
     otherCount=std::numeric_limits<size_t>::max();
     assert(ipmi::getSensorDataRecord(ctx,{},data,0)<0);
-    puts("PASS: category ranges, fixed IDs, PWM additions, missing sensors, reappearance, sparse SDR traversal, first/last records, non-sensor records, invalid IDs, LUN counts");
+    puts("PASS: category ranges, fixed IDs, VBAT additions/removal, PWM additions, missing sensors, reappearance, sparse SDR traversal, first/last records, non-sensor records, invalid IDs, LUN counts");
 }
 '''
 with tempfile.TemporaryDirectory(prefix='stable-ipmi-ids-') as temp:

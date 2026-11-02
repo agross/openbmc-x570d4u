@@ -7,7 +7,7 @@ uses the SDR record ID for its `id` label.
 | IDs | Sensors |
 | --- | --- |
 | 0–99 | Fans: FAN1–FAN6_1 use 0–5; Pwm_1–Pwm_6 use 50–55 |
-| 100–199 | Voltages: existing rails use 100–111; 112 is free for battery voltage |
+| 100–199 | Voltages: existing rails use 100–111; VBAT uses 112 |
 | 200–299 | Temperatures: existing sensors use 200–210; skip reserved ID 255 |
 
 An absent sensor leaves its slot unused; later sensors keep their IDs. SDR

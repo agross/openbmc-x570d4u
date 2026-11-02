@@ -7,10 +7,10 @@ Stock firmware was investigated using the [REA reverse-engineering skill](https:
 ## Improvements over upstream
 
 - Board monitoring: NCT6796 CPU and board temperatures, four DIMM temperatures,
-  twelve voltage rails, and all six fan-header sensor objects. IPMI keeps the
+  thirteen voltage rails, and all six fan-header sensor objects. IPMI keeps the
   historical temperature names and stable sensor IDs across reboots and sensor
-  availability changes. An unpopulated fan can report unavailable;
-  battery voltage is omitted until its acquisition is understood.
+  availability changes. VBAT uses a GPIO-gated ADC read once per day,
+  including when the host is off. An unpopulated fan can report unavailable.
 - Corrected FAN4–FAN6 tachometer channels and PWM names matching the physical
   headers. A configurable fan controller supports temperature curves, fixed
   duties, and full-speed fallback if temperature readings fail.

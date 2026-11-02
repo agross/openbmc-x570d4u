@@ -108,13 +108,13 @@ The parent supplied fresh OpenBMC ADC-pin millivolt inputs for channels 0..12. A
 | 11 / 5V | 1683 | 5.0490 |
 | 12 / 12V | 1017 | 12.2040 |
 
-All populated normal rails are plausible. BAT yields 0.015 V from a near-zero 5 mV pin input: the multiplier alone cannot fix this. Battery measurement enable/gating, acquisition timing, or hardware routing remains unresolved. Do not publish that as a real empty-battery voltage yet.
+All populated normal rails are plausible. BAT yields 0.015 V from a near-zero 5 mV pin input: the multiplier alone cannot fix this. Battery gating is now recovered: stock raises GPIO48/GPIOG0, waits 200 ms, samples ADC9, then lowers the gate. See [battery findings](battery-findings.md). Live electrical confirmation remains outstanding; do not publish the gated-off input as a real empty-battery voltage.
 
 ## Remaining limits and next steps
 
 - The stock physical resistor values themselves are not proven; the ratios above are the exact numerical calibration embedded in the shipped binary. For example `2890/1150` should not be interpreted as an independently measured resistor pair.
 - Runtime wolfpass versus BCM selection is not proven, but their shared 13-channel conversion and SDR records agree. BCM-only extras need separate hardware proof.
-- Trace battery-specific GPIO/control and kernel acquisition behavior before enabling BAT alarms or trusting its reading.
+- Battery-specific gate control is recovered in [battery findings](battery-findings.md); validate GPIOG0 ownership/direction and gated ADC9 acquisition on hardware before enabling BAT alarms.
 - Check the actual OpenBMC ADC consumer uses the reciprocal ScaleFactor convention, confirm its calibration path, then implement these channel-specific ratios and selected thresholds. This analysis did not make those changes.
 - SDR contains PSU VIN records too (sensors 24 and 25, M=2, Rexp=0, no thresholds), but they are PMBus readings, not additional AST2500 ADC rails; their presence alone does not establish an installed PMBus PSU.
 

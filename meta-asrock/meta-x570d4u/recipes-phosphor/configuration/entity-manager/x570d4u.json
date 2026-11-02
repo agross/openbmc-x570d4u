@@ -419,6 +419,35 @@
             ]
         },
         {
+            "Name": "VBAT",
+            "Type": "ADC",
+            "Index": 9,
+            "ScaleFactor": 0.3333333333333333,
+            "PollRate": 86400.0,
+            "PowerState": "Always",
+            "BridgeGpio": [
+                {
+                    "Name": "output-hwm-vbat-enable",
+                    "Polarity": "High",
+                    "SetupTime": 0.2
+                }
+            ],
+            "Thresholds": [
+                {
+                    "Direction": "less than",
+                    "Name": "lower critical",
+                    "Severity": 1,
+                    "Value": 2.7
+                },
+                {
+                    "Direction": "greater than",
+                    "Name": "upper critical",
+                    "Severity": 1,
+                    "Value": 3.4
+                }
+            ]
+        },
+        {
             "Name": "3V",
             "Type": "ADC",
             "Index": 10,

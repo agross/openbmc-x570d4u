@@ -48,7 +48,7 @@ The following multipliers convert voltage at the ADC pin into rail voltage. An O
 
 Examples from live IIO readings: 3VSB approximately 3.32 V; 5VSB 5.09 V; VCPU 1.41 V; VSOC 0.975 V; 12V 12.20 V. These are illustrative snapshots, not precision measurements. Stock has its own ADC compensation and integer quantization; Linux IIO calibration should remain authoritative for pin voltage rather than reproducing stock raw-count arithmetic blindly.
 
-VBAT currently reads about 5 mV at the ADC input. Multiplying produces an invalid battery reading. Divider is recovered, but battery sampling/enable behavior remains unresolved; do not expose it as a valid 0.015 V battery reading or enable misleading low-voltage alerts.
+VBAT currently reads about 5 mV at the ADC input. Multiplying produces an invalid battery reading. Battery sampling is now recovered: raise GPIO48/GPIOG0, wait 200 ms, sample ADC9, lower GPIOG0. Stock also caches readings and retries low samples. See [battery findings](battery-findings.md). Live electrical validation remains outstanding; do not expose the gated-off input as a valid 0.015 V battery reading.
 
 Full calibration, SDR thresholds and limitations: [Voltage findings](voltage-findings.md). Hopper-backed template evidence: `rea-voltage-1-function.json` (`ev_e102c0d982f084b4ab7b0a58cb159abbf3ec32af05eddd431d7d60fe64f57d5b`) and `rea-voltage-7-function.json` (`ev_01619e5a2f5bf7ab51c815b9468a96e652fe5aed02d0f600fa8ef8ee61c8245a`).
 
