@@ -107,7 +107,6 @@ paths=(
   /etc/shadow
   /etc/gshadow
   /etc/hostname
-  /etc/fan-policy.yaml
   /etc/dropbear
   /etc/ssl/certs/https
   /etc/systemd/network

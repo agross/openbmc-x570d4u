@@ -1,7 +1,7 @@
 [Unit]
 Description=Instantiate the X570D4U NCT6796 hardware monitor
 After=systemd-udev-trigger.service
-Before=fan-speeds.service
+Before=phosphor-pid-control.service
 
 [Service]
 Type=simple

@@ -51,33 +51,61 @@
             "Name": "FAN1",
             "Type": "AspeedFan",
             "Index": 0,
-            "PowerState": "On",
+            "PowerState": "Always",
             "MinReading": 0,
-            "MaxReading": 10000
+            "MaxReading": 10000,
+            "Connector": {
+                "Name": "FAN1 Connector",
+                "Pwm": 0,
+                "Tachs": [
+                    0
+                ]
+            }
         },
         {
             "Name": "FAN2",
             "Type": "AspeedFan",
             "Index": 1,
-            "PowerState": "On",
+            "PowerState": "Always",
             "MinReading": 0,
-            "MaxReading": 10000
+            "MaxReading": 10000,
+            "Connector": {
+                "Name": "FAN2 Connector",
+                "Pwm": 1,
+                "Tachs": [
+                    1
+                ]
+            }
         },
         {
             "Name": "FAN3",
             "Type": "AspeedFan",
             "Index": 2,
-            "PowerState": "On",
+            "PowerState": "Always",
             "MinReading": 0,
-            "MaxReading": 10000
+            "MaxReading": 10000,
+            "Connector": {
+                "Name": "FAN3 Connector",
+                "Pwm": 2,
+                "Tachs": [
+                    2
+                ]
+            }
         },
         {
             "Name": "FAN4_1",
             "Type": "AspeedFan",
             "Index": 3,
-            "PowerState": "On",
+            "PowerState": "Always",
             "MinReading": 0,
-            "MaxReading": 10000
+            "MaxReading": 10000,
+            "Connector": {
+                "Name": "FAN4_1 Connector",
+                "Pwm": 3,
+                "Tachs": [
+                    3
+                ]
+            }
         },
         {
             "Name": "FAN5_1",
@@ -91,9 +119,16 @@
             "Name": "FAN6_1",
             "Type": "AspeedFan",
             "Index": 5,
-            "PowerState": "On",
+            "PowerState": "Always",
             "MinReading": 0,
-            "MaxReading": 10000
+            "MaxReading": 10000,
+            "Connector": {
+                "Name": "FAN6_1 Connector",
+                "Pwm": 5,
+                "Tachs": [
+                    5
+                ]
+            }
         },
         {
             "Name": "DDR4_A2_Temp",
@@ -448,6 +483,168 @@
                     "Value": 13.2
                 }
             ]
+        },
+        {
+            "Name": "CPU Fans",
+            "Type": "Pid.Zone",
+            "ZoneIndex": 0,
+            "MinThermalOutput": 20,
+            "FailSafePercent": 100,
+            "CycleIntervalTimeMS": 100,
+            "UpdateThermalsTimeMS": 1000
+        },
+        {
+            "Name": "CPU Fans Output",
+            "Type": "Pid",
+            "Class": "fan",
+            "Zones": [
+                "CPU Fans"
+            ],
+            "Inputs": [
+                "FAN2",
+                "FAN3"
+            ],
+            "Outputs": [
+                "Pwm_2",
+                "Pwm_3"
+            ],
+            "PCoefficient": 0,
+            "ICoefficient": 0,
+            "FFOffCoefficient": 0,
+            "FFGainCoefficient": 1,
+            "ILimitMin": 0,
+            "ILimitMax": 0,
+            "OutLimitMin": 0,
+            "OutLimitMax": 100,
+            "SlewNeg": 0,
+            "SlewPos": 0
+        },
+        {
+            "Name": "FAN1 Fixed",
+            "Type": "Pid.Zone",
+            "ZoneIndex": 1,
+            "MinThermalOutput": 75,
+            "FailSafePercent": 100,
+            "CycleIntervalTimeMS": 100,
+            "UpdateThermalsTimeMS": 1000
+        },
+        {
+            "Name": "FAN1 Fixed Output",
+            "Type": "Pid",
+            "Class": "fan",
+            "Zones": [
+                "FAN1 Fixed"
+            ],
+            "Inputs": [
+                "FAN1"
+            ],
+            "Outputs": [
+                "Pwm_1"
+            ],
+            "PCoefficient": 0,
+            "ICoefficient": 0,
+            "FFOffCoefficient": 0,
+            "FFGainCoefficient": 1,
+            "ILimitMin": 0,
+            "ILimitMax": 0,
+            "OutLimitMin": 0,
+            "OutLimitMax": 100,
+            "SlewNeg": 0,
+            "SlewPos": 0
+        },
+        {
+            "Name": "FAN4 Fixed",
+            "Type": "Pid.Zone",
+            "ZoneIndex": 2,
+            "MinThermalOutput": 40,
+            "FailSafePercent": 100,
+            "CycleIntervalTimeMS": 100,
+            "UpdateThermalsTimeMS": 1000
+        },
+        {
+            "Name": "FAN4 Fixed Output",
+            "Type": "Pid",
+            "Class": "fan",
+            "Zones": [
+                "FAN4 Fixed"
+            ],
+            "Inputs": [
+                "FAN4_1"
+            ],
+            "Outputs": [
+                "Pwm_4"
+            ],
+            "PCoefficient": 0,
+            "ICoefficient": 0,
+            "FFOffCoefficient": 0,
+            "FFGainCoefficient": 1,
+            "ILimitMin": 0,
+            "ILimitMax": 0,
+            "OutLimitMin": 0,
+            "OutLimitMax": 100,
+            "SlewNeg": 0,
+            "SlewPos": 0
+        },
+        {
+            "Name": "FAN6 Fixed",
+            "Type": "Pid.Zone",
+            "ZoneIndex": 3,
+            "MinThermalOutput": 50,
+            "FailSafePercent": 100,
+            "CycleIntervalTimeMS": 100,
+            "UpdateThermalsTimeMS": 1000
+        },
+        {
+            "Name": "FAN6 Fixed Output",
+            "Type": "Pid",
+            "Class": "fan",
+            "Zones": [
+                "FAN6 Fixed"
+            ],
+            "Inputs": [
+                "FAN6_1"
+            ],
+            "Outputs": [
+                "Pwm_6"
+            ],
+            "PCoefficient": 0,
+            "ICoefficient": 0,
+            "FFOffCoefficient": 0,
+            "FFGainCoefficient": 1,
+            "ILimitMin": 0,
+            "ILimitMax": 0,
+            "OutLimitMin": 0,
+            "OutLimitMax": 100,
+            "SlewNeg": 0,
+            "SlewPos": 0
+        },
+        {
+            "Name": "CPU Fan Steps",
+            "Type": "Stepwise",
+            "Class": "standard",
+            "Zones": [
+                "CPU Fans"
+            ],
+            "Inputs": [
+                "CPU Temp"
+            ],
+            "Reading": [
+                50.0,
+                60.0,
+                70.0,
+                80.0,
+                90.0
+            ],
+            "Output": [
+                20.0,
+                50.0,
+                60.0,
+                70.0,
+                100.0
+            ],
+            "PositiveHysteresis": 0,
+            "NegativeHysteresis": 0,
+            "InputUnavailableAsFailed": true
         }
     ],
     "xyz.openbmc_project.Inventory.Item.System": {}
