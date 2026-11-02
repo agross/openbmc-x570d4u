@@ -1,8 +1,14 @@
 # IPMI monitoring compatibility
 
-The provider preserves historical temperature names and gives board sensors fixed
+The provider preserves historical temperature and voltage names and gives board sensors fixed
 IPMI sensor numbers and SDR record IDs. Both identities matter: `ipmi_exporter`
 uses the SDR record ID for its `id` label.
+
+The voltage D-Bus sensor `VBAT` is exposed as `BAT` in IPMI, matching the vendor
+BMC and historical `ipmi_voltage_volts{name="BAT"}` series. The other twelve
+voltage names match the names recorded in Prometheus on 2026-10-10 unchanged.
+This is a display-name alias only: the D-Bus path, voltage conversion, thresholds,
+and assigned sensor/SDR ID 112 remain unchanged.
 
 | IDs | Sensors |
 | --- | --- |
@@ -30,6 +36,7 @@ patched source directory:
 
 ```sh
 python3 meta-asrock/meta-x570d4u/recipes-phosphor/ipmi/tests/test-stable-sensor-ids.py /path/to/phosphor-ipmi-host/source
+python3 meta-asrock/meta-x570d4u/recipes-phosphor/ipmi/tests/test-sensor-names.py /path/to/phosphor-ipmi-host/source
 ```
 
 A firmware update changes the SDR repository. Clients must refresh their SDR cache;

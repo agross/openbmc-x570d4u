@@ -5,7 +5,7 @@ Upstream-Status: Pending
 
 --- a/dbus-sdr/sensorcommands.cpp
 +++ b/dbus-sdr/sensorcommands.cpp
-@@ -523,6 +523,17 @@
+@@ -523,6 +523,23 @@
      if (nameStart != std::string::npos)
      {
          name = path.substr(nameStart + 1, std::string::npos - nameStart);
@@ -20,6 +20,12 @@ Upstream-Status: Pending
 +         name == "LAN_Local_Temp"))
 +    {
 +        boost::replace_all(name, "_", " ");
++    }
++    else if (path == "/xyz/openbmc_project/sensors/voltage/VBAT")
++    {
++        // Keep the historical ipmi_voltage_volts name without renaming the
++        // D-Bus sensor path used by the fixed sensor-number map.
++        name = "BAT";
      }
  
      if (name.size() > FULL_RECORD_ID_STR_MAX_LENGTH)
