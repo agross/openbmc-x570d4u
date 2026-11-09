@@ -11,8 +11,10 @@ FAN2 and FAN3 share the CPU zone, using `CPU Temp` with these steps:
 
 | CPU temperature | PWM |
 | --- | --- |
-| Below 60°C | 20% |
-| 60–69°C | 50% |
+| Below 55°C | 20% |
+| 55–59°C | 30% |
+| 60–64°C | 40% |
+| 65–69°C | 50% |
 | 70–79°C | 60% |
 | 80–89°C | 70% |
 | 90°C and above | 100% |
