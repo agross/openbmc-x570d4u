@@ -1,0 +1,9 @@
+[Unit]
+Description=Power off the host after IPMI watchdog expiry
+Requires=xyz.openbmc_project.Chassis.Control.Power@0.service
+After=xyz.openbmc_project.Chassis.Control.Power@0.service
+
+[Service]
+Type=oneshot
+Restart=no
+ExecStart=/usr/bin/busctl set-property xyz.openbmc_project.State.Chassis /xyz/openbmc_project/state/chassis0 xyz.openbmc_project.State.Chassis RequestedPowerTransition s xyz.openbmc_project.State.Chassis.Transition.Off

@@ -1,0 +1,9 @@
+[Unit]
+Description=Reset the host after IPMI watchdog expiry
+Requires=xyz.openbmc_project.Chassis.Control.Power@0.service
+After=xyz.openbmc_project.Chassis.Control.Power@0.service
+
+[Service]
+Type=oneshot
+Restart=no
+ExecStart=/usr/bin/busctl set-property xyz.openbmc_project.State.Host /xyz/openbmc_project/state/host0 xyz.openbmc_project.State.Host RequestedHostTransition s xyz.openbmc_project.State.Host.Transition.ForceWarmReboot

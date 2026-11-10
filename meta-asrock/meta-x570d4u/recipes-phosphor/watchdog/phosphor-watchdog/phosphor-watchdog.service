@@ -1,0 +1,18 @@
+[Unit]
+Description=Host IPMI watchdog
+Before=phosphor-ipmi-host.service
+
+[Service]
+Type=dbus
+BusName=xyz.openbmc_project.Watchdog
+ExecStart=/usr/bin/phosphor-watchdog --continue \
+    --min_interval=60000 \
+    --service=xyz.openbmc_project.Watchdog \
+    --path=/xyz/openbmc_project/watchdog/host0 \
+    --action_target=xyz.openbmc_project.State.Watchdog.Action.HardReset=phosphor-watchdog-host-reset.service \
+    --action_target=xyz.openbmc_project.State.Watchdog.Action.PowerOff=phosphor-watchdog-host-poweroff.service \
+    --action_target=xyz.openbmc_project.State.Watchdog.Action.PowerCycle=phosphor-watchdog-host-powercycle.service
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
