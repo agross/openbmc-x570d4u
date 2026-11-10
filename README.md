@@ -16,6 +16,8 @@ Stock firmware was investigated using the [REA reverse-engineering skill](https:
   duties, and full-speed fallback if temperature readings fail.
 - UID LED control through the standard OpenBMC identify interface, including
   changes made using the physical button.
+- BMC-backed IPMI watchdog for host hang recovery. The timer stays disarmed
+  until a client configures and starts it.
 - AMI BIOS compatibility: host-provided BIOS version and inventory, SMBIOS
   import, and the USB network interface used by the BIOS to upload inventory.
 - A distinct firmware version identifies builds with this overlay.
@@ -26,6 +28,7 @@ Review it for your hardware before use. See the recipe documentation for
 [sensors](meta-asrock/meta-x570d4u/recipes-phosphor/configuration/README.md),
 [IPMI monitoring](meta-asrock/meta-x570d4u/recipes-phosphor/ipmi/README.md),
 [UID LED](meta-asrock/meta-x570d4u/recipes-phosphor/leds/README.md),
+[host watchdog](meta-asrock/meta-x570d4u/recipes-phosphor/watchdog/README.md),
 [kernel changes](meta-asrock/meta-x570d4u/recipes-kernel/linux/README.md),
 [host interface](meta-asrock/meta-x570d4u/recipes-asrock/README.md), and
 [bmcweb](meta-asrock/meta-x570d4u/recipes-phosphor/interfaces/README.md).

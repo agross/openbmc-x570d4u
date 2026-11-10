@@ -62,6 +62,12 @@ Read-only host sysfs independently reports BIOS version **L1.79C**, vendor **Ame
 
 Detailed paths, command evidence and limitations: [BIOS and inventory findings](bios-inventory-findings.md). REA evidence: `rea-get-smbios-function.json` (`ev_a44403bd7e597b2decd90e2ed1de05dc0d6cfd9b6d9a2d1d6842ae1beddeac8b`) and `rea-set-bios-info-function.json` (`ev_c8f61e3eb9365e0cfbf45659be88ac865f98cc558a2bb3b4fdac89f866672b48`).
 
+## Host watchdog: reset dispatch recovered
+
+Stock firmware runs the standard IPMI timer on the BMC and dispatches expiration
+to its chassis controller. The separate ASRock hardware watchdog is outside that
+path. See [watchdog findings](watchdog-findings.md).
+
 ## Next implementation scope
 
 1. Add four named JC42 DIMM temperature sensors, then verify their values, availability, web display and IPMI/exporter exposure.
