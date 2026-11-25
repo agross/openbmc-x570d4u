@@ -1,0 +1,26 @@
+From: X570D4U OpenBMC adjustments <agross@therightstuff.de>
+Subject: [PATCH] ARM: dts: aspeed: x570d4u: Set VUART SIRQ4 active high
+
+The host's ttyS0 stalls in interrupt mode with the default active-low
+polarity. Active-high SIRQ4 restores host IRQ delivery and interactive
+Serial over LAN on the X570D4U-2L2T.
+
+Upstream-Status: Pending
+
+--- a/arch/arm/boot/dts/aspeed/aspeed-bmc-asrock-x570d4u.dts
++++ b/arch/arm/boot/dts/aspeed/aspeed-bmc-asrock-x570d4u.dts
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0+
+ /dts-v1/;
+ #include "aspeed-g5.dtsi"
+ #include <dt-bindings/gpio/aspeed-gpio.h>
++#include <dt-bindings/interrupt-controller/irq.h>
+ #include <dt-bindings/leds/common.h>
+ 
+@@ -129,5 +130,6 @@
+ 
+ &vuart {
++	aspeed,lpc-interrupts = <4 IRQ_TYPE_LEVEL_HIGH>;
+ 	status = "okay";
+ };
+ 
